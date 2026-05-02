@@ -13,7 +13,11 @@ import com.atakmap.android.maps.MapView;
 import com.atakmap.android.dropdown.DropDownMapComponent;
 import com.atakmap.coremap.log.Log;
 
+import com.atakmap.coremap.maps.coords.GeoPoint;
+
+import com.emconsentinel.data.AdversarySystem;
 import com.emconsentinel.data.AssetLibrary;
+import com.emconsentinel.data.DemoScenario;
 import com.emconsentinel.plugin.R;
 import com.emconsentinel.prop.FreeSpaceEngine;
 import com.emconsentinel.prop.PathLossEngine;
@@ -25,6 +29,7 @@ import com.emconsentinel.ui.DisplaceBanner;
 import com.emconsentinel.ui.PluginState;
 import com.emconsentinel.ui.RiskDialView;
 import com.emconsentinel.ui.RiskTickLoop;
+import com.emconsentinel.ui.SoundCues;
 import com.emconsentinel.ui.ThreatCircleRenderer;
 
 import java.io.InputStream;
@@ -42,6 +47,7 @@ public class EmconSentinelMapComponent extends DropDownMapComponent {
     private ThreatCircleRenderer threatCircles;
     private RiskDialView dial;
     private DisplaceBanner banner;
+    private SoundCues sounds;
 
     @Override
     public void onCreate(final Context context, Intent intent, final MapView view) {
@@ -71,11 +77,17 @@ public class EmconSentinelMapComponent extends DropDownMapComponent {
 
         dial = new RiskDialView(context);
         addDialOverlay(view, dial);
+        // Long-press the dial to flip 10x demo mode (per brief)
+        dial.wireDemoModeLongPress(() -> {
+            state.setDemoMode10x(!state.isDemoMode10x());
+            Log.i(TAG, "demo mode 10x: " + state.isDemoMode10x());
+        });
 
         DisplacementSearch search = new DisplacementSearch(prop);
         banner = new DisplaceBanner(view, context, state, search);
+        sounds = new SoundCues();
 
-        tickLoop = new RiskTickLoop(view, state, scorer, prop, dial, threatCircles, banner);
+        tickLoop = new RiskTickLoop(view, state, scorer, prop, dial, threatCircles, banner, sounds);
         tickLoop.start();
 
         Runnable onClear = () -> {
@@ -87,9 +99,28 @@ public class EmconSentinelMapComponent extends DropDownMapComponent {
             state.clearPlaced();
             threatCircles.clear();
         };
+        final AdversaryPlacer placerRef = placer;
         Runnable onLoadDemo = () -> {
-            // Phase 5 will populate from /assets/demo_scenarios/rubicon_pokrovsk.json
-            Log.i(TAG, "Load demo scenario — Phase 5 stub (no-op)");
+            try (InputStream sis = context.getAssets().open("demo_scenarios/rubicon_pokrovsk.json")) {
+                DemoScenario sc = DemoScenario.load(sis);
+                Log.i(TAG, "loading demo scenario: " + sc.name);
+                // Clear existing
+                onClear.run();
+                // Pan map to operator location
+                view.getMapController().panTo(new GeoPoint(sc.operatorLat, sc.operatorLon), true);
+                // Drop each adversary
+                for (DemoScenario.PlacedEntry e : sc.adversaries) {
+                    AdversarySystem adv = findSystemById(e.systemId);
+                    if (adv == null) {
+                        Log.w(TAG, "demo scenario references unknown system_id: " + e.systemId);
+                        continue;
+                    }
+                    placerRef.placeAt(adv, new GeoPoint(e.lat, e.lon));
+                }
+                Log.i(TAG, "demo scenario loaded: " + sc.adversaries.size() + " adversaries");
+            } catch (Exception ex) {
+                Log.e(TAG, "failed to load demo scenario", ex);
+            }
         };
 
         ddr = new EmconSentinelDropDownReceiver(view, context, state, onClear, onLoadDemo);
@@ -118,12 +149,20 @@ public class EmconSentinelMapComponent extends DropDownMapComponent {
     public AssetLibrary getAssetLibrary() { return assetLibrary; }
     public PluginState getState() { return state; }
 
+    private AdversarySystem findSystemById(String id) {
+        for (AdversarySystem s : assetLibrary.adversarySystems()) {
+            if (s.id.equals(id)) return s;
+        }
+        return null;
+    }
+
     @Override
     protected void onDestroyImpl(Context context, MapView view) {
         if (tickLoop != null) tickLoop.stop();
         if (placer != null) placer.unregister();
         if (threatCircles != null) threatCircles.clear();
         if (banner != null) banner.detach();
+        if (sounds != null) sounds.release();
         super.onDestroyImpl(context, view);
     }
 }

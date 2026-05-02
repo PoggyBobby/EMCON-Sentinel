@@ -39,6 +39,7 @@ public final class RiskTickLoop {
     private final RiskDialView dial;
     private final ThreatCircleRenderer circles;
     private final DisplaceBanner banner;
+    private final SoundCues sounds;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final AtomicBoolean running = new AtomicBoolean(false);
 
@@ -53,7 +54,8 @@ public final class RiskTickLoop {
 
     public RiskTickLoop(MapView mapView, PluginState state, RiskScorer scorer,
                         PathLossEngine prop, RiskDialView dial,
-                        ThreatCircleRenderer circles, DisplaceBanner banner) {
+                        ThreatCircleRenderer circles, DisplaceBanner banner,
+                        SoundCues sounds) {
         this.mapView = mapView;
         this.state = state;
         this.scorer = scorer;
@@ -61,6 +63,7 @@ public final class RiskTickLoop {
         this.dial = dial;
         this.circles = circles;
         this.banner = banner;
+        this.sounds = sounds;
         scorer.dwellClock().setTimeScale(state.isDemoMode10x() ? 10.0 : 1.0);
     }
 
@@ -119,6 +122,9 @@ public final class RiskTickLoop {
 
         if (banner != null) {
             banner.apply(update.displayedScore, op.getLatitude(), op.getLongitude());
+        }
+        if (sounds != null) {
+            sounds.onScore(update.displayedScore);
         }
     }
 
