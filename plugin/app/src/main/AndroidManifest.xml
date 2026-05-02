@@ -3,7 +3,19 @@
     package="com.emconsentinel.plugin"
     tools:ignore="GoogleAppIndexingWarning">
 
-    <application 
+    <!-- Android 11+ package visibility: declare we want to see ATAK CIV (and any other ATAK
+         flavor that might host us). Without this, ATAK's PluginRegistry sees the descriptor
+         but the OS blocks the cross-app interaction, producing 'will NOT load' in logcat. -->
+    <queries>
+        <package android:name="com.atakmap.app.civ" />
+        <package android:name="com.atakmap.app.civ.debug" />
+        <package android:name="com.atakmap.app.gov" />
+        <intent>
+            <action android:name="com.atakmap.app.component" />
+        </intent>
+    </queries>
+
+    <application
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
