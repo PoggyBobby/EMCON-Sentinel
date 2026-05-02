@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App -->
+    <string name="app_name">EMCON Sentinel</string>
+    <!-- description -->
+    <string name="app_desc">Real-time DF-risk dashboard for drone operators. Computes adversary direction-finding lock probability from operator RF emissions and recommends displacement.</string>
+
+
+
+
+</resources>
