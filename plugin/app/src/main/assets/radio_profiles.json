@@ -1,0 +1,52 @@
+{
+  "version": "2026-05-02",
+  "notice": "EIRP and duty-cycle estimates are first-order from public datasheets and operator-community reporting. Tune per actual mission radio configuration.",
+  "profiles": [
+    {
+      "id": "fpv-2.4ghz-crossfire",
+      "display_name": "FPV with TBS Crossfire 2.4 GHz",
+      "bands": [
+        {"freq_mhz": 2400, "eirp_dbm": 20, "duty_cycle": 0.8, "purpose": "control"},
+        {"freq_mhz": 5800, "eirp_dbm": 23, "duty_cycle": 1.0, "purpose": "video"}
+      ]
+    },
+    {
+      "id": "dji-mavic-3",
+      "display_name": "DJI Mavic 3",
+      "bands": [
+        {"freq_mhz": 2400, "eirp_dbm": 20, "duty_cycle": 1.0, "purpose": "control_video"},
+        {"freq_mhz": 5800, "eirp_dbm": 23, "duty_cycle": 1.0, "purpose": "video"}
+      ]
+    },
+    {
+      "id": "skydio-x10",
+      "display_name": "Skydio X10",
+      "bands": [
+        {"freq_mhz": 2400, "eirp_dbm": 23, "duty_cycle": 1.0, "purpose": "control_video"},
+        {"freq_mhz": 5800, "eirp_dbm": 26, "duty_cycle": 1.0, "purpose": "video"}
+      ]
+    },
+    {
+      "id": "silvus-sc4240",
+      "display_name": "Silvus SC4240 mesh",
+      "bands": [
+        {"freq_mhz": 2200, "eirp_dbm": 33, "duty_cycle": 1.0, "purpose": "mesh_data"}
+      ]
+    },
+    {
+      "id": "himera-g1-pro",
+      "display_name": "HIMERA G1 Pro",
+      "bands": [
+        {"freq_mhz": 868, "eirp_dbm": 27, "duty_cycle": 0.3, "purpose": "voice_data"}
+      ]
+    },
+    {
+      "id": "wifi-gcs-generic",
+      "display_name": "Generic Wi-Fi GCS (laptop)",
+      "bands": [
+        {"freq_mhz": 2412, "eirp_dbm": 20, "duty_cycle": 0.6, "purpose": "wifi_uplink"},
+        {"freq_mhz": 5180, "eirp_dbm": 23, "duty_cycle": 0.6, "purpose": "wifi_uplink"}
+      ]
+    }
+  ]
+}
