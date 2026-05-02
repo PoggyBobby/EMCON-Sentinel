@@ -1,0 +1,71 @@
+{
+  "version": "2026-05-02",
+  "notice": "All values from public OSINT only. No classified, FOUO, or proprietary data. Each entry cites its source. Numbers are conservative first-order estimates and should not be treated as ground-truth performance specifications.",
+  "systems": [
+    {
+      "id": "r-330zh-zhitel",
+      "display_name": "R-330Zh Zhitel",
+      "platform": "ground_vehicle",
+      "frequency_min_mhz": 100,
+      "frequency_max_mhz": 2000,
+      "antenna_gain_dbi": 12.0,
+      "sensitivity_dbm": -110,
+      "ground_range_km": 25,
+      "airborne_range_km": 50,
+      "time_to_fix_seconds": 90,
+      "source": "Sprotyv G7 Russian EW Systems Analytic Insight Report (Nov 2023); CSIS Russia EW capabilities brief"
+    },
+    {
+      "id": "rb-301b-borisoglebsk-2",
+      "display_name": "Borisoglebsk-2 (RB-301B)",
+      "platform": "ground_vehicle",
+      "frequency_min_mhz": 30,
+      "frequency_max_mhz": 3000,
+      "antenna_gain_dbi": 10.0,
+      "sensitivity_dbm": -107,
+      "ground_range_km": 30,
+      "airborne_range_km": 60,
+      "time_to_fix_seconds": 120,
+      "source": "Sprotyv G7 (Nov 2023); RUSI Russian EW assessments"
+    },
+    {
+      "id": "pole-21",
+      "display_name": "Pole-21",
+      "platform": "ground_vehicle",
+      "frequency_min_mhz": 1000,
+      "frequency_max_mhz": 2500,
+      "antenna_gain_dbi": 8.0,
+      "sensitivity_dbm": -100,
+      "ground_range_km": 15,
+      "airborne_range_km": 30,
+      "time_to_fix_seconds": 60,
+      "source": "Sprotyv G7 (Nov 2023); open Russian milblogger reporting (Telegram, 2024)"
+    },
+    {
+      "id": "shipovnik-aero",
+      "display_name": "Shipovnik-Aero",
+      "platform": "ground_vehicle",
+      "frequency_min_mhz": 100,
+      "frequency_max_mhz": 6000,
+      "antenna_gain_dbi": 14.0,
+      "sensitivity_dbm": -115,
+      "ground_range_km": 10,
+      "airborne_range_km": 20,
+      "time_to_fix_seconds": 75,
+      "source": "Sprotyv G7 (Nov 2023); Russian EW capability open-source reporting"
+    },
+    {
+      "id": "leer-3",
+      "display_name": "Leer-3 (Orlan-10 RB-341V)",
+      "platform": "airborne",
+      "frequency_min_mhz": 800,
+      "frequency_max_mhz": 2500,
+      "antenna_gain_dbi": 6.0,
+      "sensitivity_dbm": -95,
+      "ground_range_km": 6,
+      "airborne_range_km": 25,
+      "time_to_fix_seconds": 45,
+      "source": "Sprotyv G7 (Nov 2023); Conflict Armament Research Orlan-10 teardown (2022)"
+    }
+  ]
+}
