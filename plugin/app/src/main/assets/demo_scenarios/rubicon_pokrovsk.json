@@ -1,0 +1,30 @@
+{
+  "version": "2026-05-02",
+  "name": "Rubicon — Pokrovsk axis",
+  "description": "Synthetic eastern-Ukraine FOB with three adversary DF assets at tactical reach. Coordinates fictional. Designed to push the operator into amber within ~25 s of keying under DEMO MODE 10x, and into red within ~60 s, mirroring real Rubicon sensor-to-shooter cycles.",
+  "operator": {
+    "lat": 48.2814,
+    "lon": 37.1762,
+    "label": "Operator FOB"
+  },
+  "adversaries": [
+    {
+      "system_id": "r-330zh-zhitel",
+      "lat": 48.2814,
+      "lon": 37.2841,
+      "note": "Zhitel ground vehicle, ~8 km east — direct-LoS to operator"
+    },
+    {
+      "system_id": "rb-301b-borisoglebsk-2",
+      "lat": 48.1735,
+      "lon": 37.2935,
+      "note": "Borisoglebsk-2, ~14 km southeast — wide-band sweep capability"
+    },
+    {
+      "system_id": "leer-3",
+      "lat": 48.3621,
+      "lon": 37.2487,
+      "note": "Leer-3 (Orlan-10) airborne goniometer, ~12 km northeast — fast time-to-fix"
+    }
+  ]
+}

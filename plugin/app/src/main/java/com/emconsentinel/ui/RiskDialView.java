@@ -35,6 +35,13 @@ public final class RiskDialView extends View {
     public RiskDialView(Context context) { super(context); init(); }
     public RiskDialView(Context context, AttributeSet attrs) { super(context, attrs); init(); }
 
+    public void wireDemoModeLongPress(final Runnable onLongPress) {
+        setOnLongClickListener(v -> {
+            if (onLongPress != null) onLongPress.run();
+            return true;
+        });
+    }
+
     private void init() {
         float density = getResources().getDisplayMetrics().density;
         ringBgPaint.setColor(0xFF333333);
