@@ -1,0 +1,37 @@
+# ATAK SDK is gov-distributed, very large, and not redistributable: keep out of repo
+sdk/
+
+# Reference plugins (cloned for study, not part of our source)
+tools/reference/
+
+# Local-only build/IDE state
+**/local.properties
+**/build/
+**/.gradle/
+**/out/
+**/captures/
+**/.cxx/
+**/.kotlin/
+**/release/
+**/.idea/
+*.iml
+
+# Signing — never commit keystores
+*.keystore
+*.jks
+*.p12
+
+# OS noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Built APKs (we only attach the signed release to GitHub Releases)
+*.apk
+
+# Logs
+*.log
+
+# Scratch
+scratch/
