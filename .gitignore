@@ -33,6 +33,10 @@ Thumbs.db
 # Logs
 *.log
 
+# Python build artifacts (tools/ sidecar scripts)
+__pycache__/
+*.pyc
+
 # Scratch
 scratch/
 
