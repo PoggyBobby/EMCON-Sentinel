@@ -66,6 +66,58 @@
       "airborne_range_km": 25,
       "time_to_fix_seconds": 45,
       "source": "Sprotyv G7 (Nov 2023); Conflict Armament Research Orlan-10 teardown (2022)"
+    },
+    {
+      "id": "krasukha-4",
+      "display_name": "Krasukha-4 (1RL257)",
+      "platform": "ground_vehicle",
+      "frequency_min_mhz": 8000,
+      "frequency_max_mhz": 18000,
+      "antenna_gain_dbi": 18.0,
+      "sensitivity_dbm": -118,
+      "ground_range_km": 50,
+      "airborne_range_km": 250,
+      "time_to_fix_seconds": 60,
+      "source": "Sprotyv G7 (Nov 2023); CSIS Russian EW capability briefs; primarily anti-AWACS/JSTARS but DF-capable in band"
+    },
+    {
+      "id": "murmansk-bn",
+      "display_name": "Murmansk-BN",
+      "platform": "ground_vehicle",
+      "frequency_min_mhz": 3,
+      "frequency_max_mhz": 30,
+      "antenna_gain_dbi": 16.0,
+      "sensitivity_dbm": -120,
+      "ground_range_km": 100,
+      "airborne_range_km": 300,
+      "time_to_fix_seconds": 180,
+      "source": "Sprotyv G7 (Nov 2023); RUSI assessments — strategic HF DF; only relevant to HF radio operators"
+    },
+    {
+      "id": "torn-mdm",
+      "display_name": "Torn-MDM",
+      "platform": "ground_vehicle",
+      "frequency_min_mhz": 1.5,
+      "frequency_max_mhz": 3000,
+      "antenna_gain_dbi": 9.0,
+      "sensitivity_dbm": -108,
+      "ground_range_km": 30,
+      "airborne_range_km": 60,
+      "time_to_fix_seconds": 70,
+      "source": "Sprotyv G7 (Nov 2023); manpack tactical SIGINT/DF system; widely deployed in Donbas operations 2022-2024"
+    },
+    {
+      "id": "rb-636-svet-ku",
+      "display_name": "RB-636 Svet-KU",
+      "platform": "ground_vehicle",
+      "frequency_min_mhz": 100,
+      "frequency_max_mhz": 8000,
+      "antenna_gain_dbi": 11.0,
+      "sensitivity_dbm": -110,
+      "ground_range_km": 20,
+      "airborne_range_km": 40,
+      "time_to_fix_seconds": 80,
+      "source": "Sprotyv G7 (Nov 2023); open Russian Ministry of Defence trade-show photos and brochures"
     }
   ]
 }

@@ -47,6 +47,30 @@
         {"freq_mhz": 2412, "eirp_dbm": 20, "duty_cycle": 0.6, "purpose": "wifi_uplink"},
         {"freq_mhz": 5180, "eirp_dbm": 23, "duty_cycle": 0.6, "purpose": "wifi_uplink"}
       ]
+    },
+    {
+      "id": "autel-evo-max-4t",
+      "display_name": "Autel EVO Max 4T",
+      "bands": [
+        {"freq_mhz": 2400, "eirp_dbm": 23, "duty_cycle": 1.0, "purpose": "control_video"},
+        {"freq_mhz": 5800, "eirp_dbm": 26, "duty_cycle": 1.0, "purpose": "video"}
+      ]
+    },
+    {
+      "id": "parrot-anafi-usa",
+      "display_name": "Parrot Anafi USA",
+      "bands": [
+        {"freq_mhz": 2400, "eirp_dbm": 18, "duty_cycle": 1.0, "purpose": "control_video"},
+        {"freq_mhz": 5800, "eirp_dbm": 20, "duty_cycle": 1.0, "purpose": "video"}
+      ]
+    },
+    {
+      "id": "rajant-breadcrumb",
+      "display_name": "Rajant Breadcrumb mesh",
+      "bands": [
+        {"freq_mhz": 900, "eirp_dbm": 30, "duty_cycle": 0.8, "purpose": "mesh_data"},
+        {"freq_mhz": 2400, "eirp_dbm": 30, "duty_cycle": 0.8, "purpose": "mesh_data"}
+      ]
     }
   ]
 }

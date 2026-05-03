@@ -1,0 +1,94 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  unit-tests:
+    name: JUnit (pure Java math + data layer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('plugin/**/*.gradle*', 'plugin/**/gradle-wrapper.properties') }}
+          restore-keys: gradle-
+      - name: Generate dummy debug keystore
+        run: |
+          keytool -genkey -v \
+            -keystore plugin/debug.keystore \
+            -alias androiddebugkey -storepass android -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=EMCON Sentinel CI, O=EMCON Sentinel, C=US"
+      - name: Bootstrap atak SDK stub
+        env:
+          WS: ${{ github.workspace }}
+        run: |
+          mkdir -p "$WS/sdk-stub"
+          touch "$WS/sdk-stub/main.jar"
+      - name: Write local.properties
+        env:
+          WS: ${{ github.workspace }}
+        run: |
+          cat > plugin/local.properties <<EOF
+          sdk.dir=$ANDROID_HOME
+          sdk.path=$WS/sdk-stub
+          takdev.plugin=$WS/sdk-stub/main.jar
+          takDebugKeyFile=$WS/plugin/debug.keystore
+          takDebugKeyFilePassword=android
+          takDebugKeyAlias=androiddebugkey
+          takDebugKeyPassword=android
+          takReleaseKeyFile=$WS/plugin/debug.keystore
+          takReleaseKeyFilePassword=android
+          takReleaseKeyAlias=androiddebugkey
+          takReleaseKeyPassword=android
+          EOF
+      - name: Run pure-Java unit tests
+        working-directory: plugin
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:testCivDebugUnitTest --no-daemon
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: plugin/app/build/reports/tests/
+
+  sim-lint:
+    name: Web simulator structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate sim/index.html
+        run: |
+          test -f sim/index.html
+          grep -q "ADVERSARY_SYSTEMS" sim/index.html
+          grep -q "RADIO_PROFILES" sim/index.html
+          grep -q "DEMO_SCENARIO" sim/index.html
+          grep -q "RiskScorer" sim/index.html
+          grep -q "DisplacementSearch" sim/index.html
+          OPEN=$(grep -c '<script' sim/index.html)
+          CLOSE=$(grep -c '</script>' sim/index.html)
+          if [ "$OPEN" != "$CLOSE" ]; then
+            echo "script tag mismatch: $OPEN open / $CLOSE close"
+            exit 1
+          fi
+          echo "sim/index.html structure OK"

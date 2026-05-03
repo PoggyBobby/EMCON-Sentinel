@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EMCON Sentinel — browser simulator</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+<style>
+  :root {
+    --bg: #0d0d10;
+    --panel-bg: #15161b;
+    --panel-border: #2a2c34;
+    --text: #e8e8ec;
+    --muted: #8a8d96;
+    --accent: #ffce3a;
+    --green: #2ecc40;
+    --amber: #ffa500;
+    --red: #ff1f1f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif; }
+  #app { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
+  #panel { background: var(--panel-bg); border-right: 1px solid var(--panel-border);
+    padding: 14px; overflow-y: auto; font-size: 13px; }
+  #panel h1 { font-size: 18px; margin: 0 0 4px; letter-spacing: 0.2px; }
+  #panel .sub { color: var(--muted); font-size: 11px; line-height: 1.4; margin-bottom: 14px; }
+  #panel .section { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--panel-border); }
+  #panel label { display: block; font-weight: 600; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--muted); margin-bottom: 4px; }
+  #panel select, #panel button { width: 100%; padding: 8px 10px; background: #22232a;
+    color: var(--text); border: 1px solid var(--panel-border); border-radius: 4px;
+    font-size: 13px; cursor: pointer; }
+  #panel select { margin-bottom: 8px; }
+  #panel button:hover { background: #2c2d36; }
+  #panel button.primary { background: #2ecc40; color: #000; font-weight: 600;
+    border: 1px solid #2ecc40; padding: 14px; font-size: 15px; letter-spacing: 0.5px; }
+  #panel button.primary.keying { background: #cc1f1f; color: #fff; border-color: #cc1f1f; }
+  #panel button.row { width: calc(50% - 4px); display: inline-block; }
+  #panel button.ghost { background: transparent; border: 1px solid var(--panel-border); color: var(--muted); }
+  #panel .placed-list { font-size: 11px; color: var(--muted); margin: 6px 0 8px;
+    max-height: 80px; overflow-y: auto; padding-left: 0; }
+  #panel .placed-list li { list-style: none; padding: 2px 0; }
+  #panel .footer { margin-top: 16px; font-size: 10px; color: var(--muted); line-height: 1.4; }
+  #panel .footer a { color: var(--muted); }
+
+  #map-container { position: relative; }
+  #map { width: 100%; height: 100%; background: #0a0b10; }
+  .leaflet-control-zoom { background: var(--panel-bg) !important; border: 1px solid var(--panel-border) !important; }
+  .leaflet-control-zoom a { color: var(--text) !important; background: var(--panel-bg) !important; }
+  .leaflet-control-attribution { background: rgba(13,13,16,0.85) !important; color: var(--muted) !important; font-size: 10px; }
+  .leaflet-control-attribution a { color: var(--muted) !important; }
+
+  #dial-container { position: absolute; bottom: 16px; right: 16px; width: 220px; height: 270px;
+    background: rgba(0,0,0,0.85); border: 1px solid var(--panel-border); border-radius: 8px;
+    z-index: 1000; user-select: none; }
+  #dial-container .demo-watermark { position: absolute; top: 6px; left: 0; right: 0;
+    text-align: center; color: var(--accent); font-size: 11px; font-weight: 600;
+    letter-spacing: 1px; }
+  #dial { width: 220px; height: 270px; cursor: pointer; }
+
+  #banner { position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+    background: rgba(204,31,31,0.95); color: white; padding: 14px 28px; border-radius: 6px;
+    font-weight: 700; font-size: 16px; cursor: pointer; z-index: 1000; display: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5); animation: pulse 1.2s ease-in-out infinite alternate; }
+  #banner:hover { background: rgba(255,40,40,1); }
+  @keyframes pulse { from { transform: translateX(-50%) scale(1); } to { transform: translateX(-50%) scale(1.04); } }
+
+  dialog { background: var(--panel-bg); color: var(--text); border: 1px solid var(--panel-border);
+    border-radius: 8px; padding: 20px; max-width: 600px; width: 90%; }
+  dialog::backdrop { background: rgba(0,0,0,0.6); }
+  dialog h2 { margin-top: 0; font-size: 16px; }
+  .candidate { background: #22232a; border: 1px solid var(--panel-border); border-radius: 4px;
+    padding: 10px 12px; margin-bottom: 6px; cursor: pointer; font-family: ui-monospace, monospace; font-size: 12px; }
+  .candidate:hover { background: #2c2d36; }
+  .candidate b { color: var(--green); }
+  .source-entry { padding: 6px 0; border-bottom: 1px solid var(--panel-border); font-size: 12px; }
+  .source-entry b { display: block; margin-bottom: 2px; color: var(--text); }
+  .source-entry span { color: var(--muted); font-size: 11px; }
+  .close-btn { margin-top: 14px; width: 100%; padding: 8px; background: var(--accent);
+    color: black; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; }
+
+  .adv-marker { background: rgba(204,31,31,0.95); border: 2px solid white; border-radius: 50%;
+    width: 18px; height: 18px; box-shadow: 0 0 6px rgba(0,0,0,0.6); }
+  .adv-marker.air { border-radius: 4px; transform: rotate(45deg); }
+  .op-marker { background: var(--accent); border: 2px solid black; border-radius: 50%;
+    width: 14px; height: 14px; box-shadow: 0 0 8px rgba(255,206,58,0.8); }
+  .placement-cursor { cursor: crosshair !important; }
+  .placement-banner { position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+    background: rgba(255,206,58,0.95); color: black; padding: 8px 18px; border-radius: 4px;
+    font-weight: 600; font-size: 13px; z-index: 1000; display: none; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="panel">
+    <h1>EMCON Sentinel</h1>
+    <div class="sub">Browser simulator. Real-time DF-risk dashboard for drone operators.
+      Math is identical to the ATAK plugin (sigmoid detection × exponential dwell saturation × 1-minus-product composite).</div>
+
+    <div class="section">
+      <label for="profile">Operator radio profile</label>
+      <select id="profile"></select>
+    </div>
+
+    <div class="section">
+      <label>Adversary DF assets</label>
+      <select id="adv-picker"></select>
+      <button id="add-asset" style="margin-bottom: 6px;">Add asset (click on map)</button>
+      <button class="row ghost" id="clear-assets">Clear</button>
+      <button class="row ghost" id="load-demo">Load demo scenario</button>
+      <ul id="placed-list" class="placed-list"></ul>
+    </div>
+
+    <div class="section">
+      <button id="keying-btn" class="primary">START KEYING</button>
+      <div class="sub" id="keying-status" style="margin-top: 6px;">Idle. Press to begin emitting.</div>
+    </div>
+
+    <div class="section">
+      <button class="ghost" id="about-btn">About / OSINT sources</button>
+    </div>
+
+    <div class="footer">
+      Open-source under Apache 2.0. Public OSINT only (no classified, FOUO, or proprietary data).
+      Simulator uses free-space propagation only — terrain blockage not modeled.
+      In ATAK plugin, CloudRF API provides terrain-aware path loss.
+      <br><br>
+      Tip: long-press the dial to toggle <b>DEMO MODE 10×</b> (accelerated dwell time for demos).
+    </div>
+  </div>
+
+  <div id="map-container">
+    <div id="map"></div>
+    <div id="banner">DISPLACE — risk 0.62</div>
+    <div class="placement-banner" id="placement-banner">Click on the map to place this asset.</div>
+    <div id="dial-container">
+      <div class="demo-watermark" id="demo-watermark" style="display:none;">DEMO MODE 10×</div>
+      <canvas id="dial" width="220" height="270"></canvas>
+    </div>
+  </div>
+</div>
+
+<dialog id="candidate-dialog">
+  <h2>Top displacement candidates</h2>
+  <p class="sub">Predicted P(compromise) after stopping keying for 30 s, then moving and re-keying for 30 s.</p>
+  <div id="candidate-list"></div>
+  <button class="close-btn" id="candidate-cancel">Cancel</button>
+</dialog>
+
+<dialog id="about-dialog">
+  <h2>EMCON Sentinel — OSINT sources</h2>
+  <div id="about-content"></div>
+  <button class="close-btn" id="about-close">Close</button>
+</dialog>
+
+<script>
+//// EMBEDDED DATA — mirror of plugin/app/src/main/assets/*.json
+const ADVERSARY_SYSTEMS = [
+  { id:"r-330zh-zhitel", display_name:"R-330Zh Zhitel", platform:"ground_vehicle",
+    frequency_min_mhz:100, frequency_max_mhz:2000, antenna_gain_dbi:12.0, sensitivity_dbm:-110,
+    ground_range_km:25, airborne_range_km:50, time_to_fix_seconds:90,
+    source:"Sprotyv G7 Russian EW Systems Analytic Insight Report (Nov 2023); CSIS Russia EW capability briefs" },
+  { id:"rb-301b-borisoglebsk-2", display_name:"Borisoglebsk-2 (RB-301B)", platform:"ground_vehicle",
+    frequency_min_mhz:30, frequency_max_mhz:3000, antenna_gain_dbi:10.0, sensitivity_dbm:-107,
+    ground_range_km:30, airborne_range_km:60, time_to_fix_seconds:120,
+    source:"Sprotyv G7 (Nov 2023); RUSI Russian EW assessments" },
+  { id:"pole-21", display_name:"Pole-21", platform:"ground_vehicle",
+    frequency_min_mhz:1000, frequency_max_mhz:2500, antenna_gain_dbi:8.0, sensitivity_dbm:-100,
+    ground_range_km:15, airborne_range_km:30, time_to_fix_seconds:60,
+    source:"Sprotyv G7 (Nov 2023); open Russian milblogger reporting (Telegram, 2024)" },
+  { id:"shipovnik-aero", display_name:"Shipovnik-Aero", platform:"ground_vehicle",
+    frequency_min_mhz:100, frequency_max_mhz:6000, antenna_gain_dbi:14.0, sensitivity_dbm:-115,
+    ground_range_km:10, airborne_range_km:20, time_to_fix_seconds:75,
+    source:"Sprotyv G7 (Nov 2023); Russian EW capability open-source reporting" },
+  { id:"leer-3", display_name:"Leer-3 (Orlan-10 RB-341V)", platform:"airborne",
+    frequency_min_mhz:800, frequency_max_mhz:2500, antenna_gain_dbi:6.0, sensitivity_dbm:-95,
+    ground_range_km:6, airborne_range_km:25, time_to_fix_seconds:45,
+    source:"Sprotyv G7 (Nov 2023); Conflict Armament Research Orlan-10 teardown (2022)" },
+  { id:"krasukha-4", display_name:"Krasukha-4 (1RL257)", platform:"ground_vehicle",
+    frequency_min_mhz:8000, frequency_max_mhz:18000, antenna_gain_dbi:18.0, sensitivity_dbm:-118,
+    ground_range_km:50, airborne_range_km:250, time_to_fix_seconds:60,
+    source:"Sprotyv G7 (Nov 2023); CSIS Russian EW capability briefs; primarily anti-AWACS/JSTARS but DF-capable in band" },
+  { id:"murmansk-bn", display_name:"Murmansk-BN", platform:"ground_vehicle",
+    frequency_min_mhz:3, frequency_max_mhz:30, antenna_gain_dbi:16.0, sensitivity_dbm:-120,
+    ground_range_km:100, airborne_range_km:300, time_to_fix_seconds:180,
+    source:"Sprotyv G7 (Nov 2023); RUSI assessments — strategic HF DF; only relevant to HF radio operators" },
+  { id:"torn-mdm", display_name:"Torn-MDM", platform:"ground_vehicle",
+    frequency_min_mhz:1.5, frequency_max_mhz:3000, antenna_gain_dbi:9.0, sensitivity_dbm:-108,
+    ground_range_km:30, airborne_range_km:60, time_to_fix_seconds:70,
+    source:"Sprotyv G7 (Nov 2023); manpack tactical SIGINT/DF system; widely deployed in Donbas operations 2022-2024" },
+  { id:"rb-636-svet-ku", display_name:"RB-636 Svet-KU", platform:"ground_vehicle",
+    frequency_min_mhz:100, frequency_max_mhz:8000, antenna_gain_dbi:11.0, sensitivity_dbm:-110,
+    ground_range_km:20, airborne_range_km:40, time_to_fix_seconds:80,
+    source:"Sprotyv G7 (Nov 2023); open Russian Ministry of Defence trade-show photos and brochures" },
+];
+
+const RADIO_PROFILES = [
+  { id:"fpv-2.4ghz-crossfire", display_name:"FPV with TBS Crossfire 2.4 GHz", bands:[
+    { freq_mhz:2400, eirp_dbm:20, duty_cycle:0.8, purpose:"control" },
+    { freq_mhz:5800, eirp_dbm:23, duty_cycle:1.0, purpose:"video" } ] },
+  { id:"dji-mavic-3", display_name:"DJI Mavic 3", bands:[
+    { freq_mhz:2400, eirp_dbm:20, duty_cycle:1.0, purpose:"control_video" },
+    { freq_mhz:5800, eirp_dbm:23, duty_cycle:1.0, purpose:"video" } ] },
+  { id:"skydio-x10", display_name:"Skydio X10", bands:[
+    { freq_mhz:2400, eirp_dbm:23, duty_cycle:1.0, purpose:"control_video" },
+    { freq_mhz:5800, eirp_dbm:26, duty_cycle:1.0, purpose:"video" } ] },
+  { id:"silvus-sc4240", display_name:"Silvus SC4240 mesh", bands:[
+    { freq_mhz:2200, eirp_dbm:33, duty_cycle:1.0, purpose:"mesh_data" } ] },
+  { id:"himera-g1-pro", display_name:"HIMERA G1 Pro", bands:[
+    { freq_mhz:868, eirp_dbm:27, duty_cycle:0.3, purpose:"voice_data" } ] },
+  { id:"wifi-gcs-generic", display_name:"Generic Wi-Fi GCS (laptop)", bands:[
+    { freq_mhz:2412, eirp_dbm:20, duty_cycle:0.6, purpose:"wifi_uplink" },
+    { freq_mhz:5180, eirp_dbm:23, duty_cycle:0.6, purpose:"wifi_uplink" } ] },
+  { id:"autel-evo-max-4t", display_name:"Autel EVO Max 4T", bands:[
+    { freq_mhz:2400, eirp_dbm:23, duty_cycle:1.0, purpose:"control_video" },
+    { freq_mhz:5800, eirp_dbm:26, duty_cycle:1.0, purpose:"video" } ] },
+  { id:"parrot-anafi-usa", display_name:"Parrot Anafi USA", bands:[
+    { freq_mhz:2400, eirp_dbm:18, duty_cycle:1.0, purpose:"control_video" },
+    { freq_mhz:5800, eirp_dbm:20, duty_cycle:1.0, purpose:"video" } ] },
+  { id:"rajant-breadcrumb", display_name:"Rajant Breadcrumb mesh", bands:[
+    { freq_mhz:900, eirp_dbm:30, duty_cycle:0.8, purpose:"mesh_data" },
+    { freq_mhz:2400, eirp_dbm:30, duty_cycle:0.8, purpose:"mesh_data" } ] },
+];
+
+const DEMO_SCENARIO = {
+  name: "Rubicon — Pokrovsk axis",
+  operator: { lat: 48.2814, lon: 37.1762, label: "Operator FOB" },
+  adversaries: [
+    { system_id: "r-330zh-zhitel",         lat: 48.2814, lon: 37.2841, note: "Zhitel ~8 km E" },
+    { system_id: "rb-301b-borisoglebsk-2", lat: 48.1735, lon: 37.2935, note: "Borisoglebsk-2 ~14 km SE" },
+    { system_id: "leer-3",                 lat: 48.3621, lon: 37.2487, note: "Leer-3 (Orlan-10) ~12 km NE airborne" },
+  ],
+};
+
+//// MATH — port of plugin/app/src/main/java/com/emconsentinel/{prop,risk,util}/
+
+const Geo = {
+  EARTH_R_KM: 6371.0088,
+  distanceKm(lat1, lon1, lat2, lon2) {
+    const phi1 = lat1 * Math.PI / 180, phi2 = lat2 * Math.PI / 180;
+    const dPhi = (lat2 - lat1) * Math.PI / 180;
+    const dLam = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dPhi/2)**2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLam/2)**2;
+    return 2 * this.EARTH_R_KM * Math.asin(Math.min(1, Math.sqrt(a)));
+  },
+  bearingDeg(lat1, lon1, lat2, lon2) {
+    const phi1 = lat1 * Math.PI / 180, phi2 = lat2 * Math.PI / 180;
+    const dLam = (lon2 - lon1) * Math.PI / 180;
+    const y = Math.sin(dLam) * Math.cos(phi2);
+    const x = Math.cos(phi1)*Math.sin(phi2) - Math.sin(phi1)*Math.cos(phi2)*Math.cos(dLam);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  },
+  destination(lat, lon, bearingDeg, distKm) {
+    const phi1 = lat * Math.PI / 180, lam1 = lon * Math.PI / 180;
+    const theta = bearingDeg * Math.PI / 180;
+    const delta = distKm / this.EARTH_R_KM;
+    const phi2 = Math.asin(Math.sin(phi1)*Math.cos(delta) + Math.cos(phi1)*Math.sin(delta)*Math.cos(theta));
+    const lam2 = lam1 + Math.atan2(Math.sin(theta)*Math.sin(delta)*Math.cos(phi1),
+                                   Math.cos(delta) - Math.sin(phi1)*Math.sin(phi2));
+    return [phi2 * 180 / Math.PI, ((lam2 * 180 / Math.PI + 540) % 360) - 180];
+  },
+};
+
+function fsplDb(distKm, freqMhz) {
+  const d = Math.max(0.001, distKm);
+  return 20 * Math.log10(d) + 20 * Math.log10(freqMhz) + 32.44;
+}
+
+function sigmoid(margin) { return 1 / (1 + Math.exp(-0.2 * margin)); }
+
+function bandDetectionProb(adv, band, pathLossDb) {
+  if (band.freq_mhz < adv.frequency_min_mhz || band.freq_mhz > adv.frequency_max_mhz) return 0;
+  const received = band.eirp_dbm - pathLossDb + adv.antenna_gain_dbi;
+  return sigmoid(received - adv.sensitivity_dbm) * band.duty_cycle;
+}
+
+function assetDetectionProb(adv, profile, opLat, opLon, advLat, advLon) {
+  let max = 0;
+  for (const band of profile.bands) {
+    if (band.freq_mhz < adv.frequency_min_mhz || band.freq_mhz > adv.frequency_max_mhz) continue;
+    const dKm = Geo.distanceKm(opLat, opLon, advLat, advLon);
+    const pl = fsplDb(dKm, band.freq_mhz);
+    const p = bandDetectionProb(adv, band, pl);
+    if (p > max) max = p;
+  }
+  return max;
+}
+
+class DwellClock {
+  constructor() { this.reset(); this.scale = 1.0; }
+  reset() { this.active = false; this.lastT = 0; this.anchorLat = 0; this.anchorLon = 0; this.dwell = 0; }
+  setTimeScale(s) { this.scale = s; }
+  update(nowMs, lat, lon, isKeying) {
+    if (!isKeying) { this.reset(); return; }
+    if (!this.active) {
+      this.active = true; this.anchorLat = lat; this.anchorLon = lon; this.lastT = nowMs; this.dwell = 0; return;
+    }
+    const distM = Geo.distanceKm(this.anchorLat, this.anchorLon, lat, lon) * 1000;
+    if (distM > 50) {
+      this.anchorLat = lat; this.anchorLon = lon; this.dwell = 0; this.lastT = nowMs; return;
+    }
+    const dt = (nowMs - this.lastT) / 1000;
+    this.dwell += dt * this.scale;
+    this.lastT = nowMs;
+  }
+}
+
+class MovingAverage {
+  constructor(windowMs) { this.windowMs = windowMs; this.samples = []; this.sum = 0; }
+  push(nowMs, v) {
+    this.samples.push({ t: nowMs, v }); this.sum += v;
+    const cutoff = nowMs - this.windowMs;
+    while (this.samples.length && this.samples[0].t < cutoff) this.sum -= this.samples.shift().v;
+    return this.sum / this.samples.length;
+  }
+  reset() { this.samples = []; this.sum = 0; }
+}
+
+class RiskScorer {
+  constructor() { this.clock = new DwellClock(); this.smoother = new MovingAverage(5000); }
+  reset() { this.clock.reset(); this.smoother.reset(); }
+  update(nowMs, opLat, opLon, isKeying, profile, placed) {
+    this.clock.update(nowMs, opLat, opLon, isKeying);
+    const t = this.clock.dwell;
+    if (!isKeying || !profile || placed.length === 0) {
+      const smoothed = this.smoother.push(nowMs, 0);
+      return { displayedScore: smoothed, raw: 0, dwell: t, top: null, perAssetLockProb: new Map() };
+    }
+    let oneMinus = 1.0;
+    let topProb = 0, topName = null, topId = null, topBearing = 0, topRange = 0;
+    const perAssetLockProb = new Map();
+    for (const p of placed) {
+      const adv = p.system;
+      const dKm = Geo.distanceKm(opLat, opLon, p.lat, p.lon);
+      const maxR = adv.platform === 'airborne' ? adv.airborne_range_km : adv.ground_range_km;
+      if (dKm > maxR * 4) { perAssetLockProb.set(p.key, 0); continue; }
+      const pDetect = assetDetectionProb(adv, profile, opLat, opLon, p.lat, p.lon);
+      if (pDetect <= 0) { perAssetLockProb.set(p.key, 0); continue; }
+      const tau = Math.max(1, adv.time_to_fix_seconds);
+      const pLock = pDetect * (1 - Math.exp(-t / tau));
+      perAssetLockProb.set(p.key, pLock);
+      oneMinus *= (1 - pLock);
+      if (pLock > topProb) {
+        topProb = pLock; topName = adv.display_name; topId = adv.id;
+        topBearing = Geo.bearingDeg(opLat, opLon, p.lat, p.lon);
+        topRange = dKm;
+      }
+    }
+    const raw = 1 - oneMinus;
+    const smoothed = this.smoother.push(nowMs, raw);
+    return { displayedScore: smoothed, raw, dwell: t,
+             top: topId ? { id: topId, name: topName, bearing: topBearing, range: topRange, prob: topProb } : null,
+             perAssetLockProb };
+  }
+}
+
+const DisplacementSearch = {
+  bearings: [0, 45, 90, 135, 180, 225, 270, 315],
+  rangesM: [200, 400, 800],
+  postMoveDwellSec: 30,
+  top3(currentComposite, opLat, opLon, profile, placed) {
+    const candidates = [];
+    for (const b of this.bearings) {
+      for (const rM of this.rangesM) {
+        const [lat, lon] = Geo.destination(opLat, opLon, b, rM / 1000);
+        const pComp = this.predictedComposite(lat, lon, profile, placed);
+        candidates.push({ lat, lon, bearingDeg: b, distanceMeters: rM, predictedComposite: pComp,
+                          predictedDelta: currentComposite - pComp });
+      }
+    }
+    candidates.sort((a, b) => a.predictedComposite - b.predictedComposite);
+    return candidates.slice(0, 3);
+  },
+  predictedComposite(lat, lon, profile, placed) {
+    let oneMinus = 1.0;
+    for (const p of placed) {
+      const adv = p.system;
+      const pDetect = assetDetectionProb(adv, profile, lat, lon, p.lat, p.lon);
+      if (pDetect <= 0) continue;
+      const tau = Math.max(1, adv.time_to_fix_seconds);
+      const pLock = pDetect * (1 - Math.exp(-this.postMoveDwellSec / tau));
+      oneMinus *= (1 - pLock);
+    }
+    return 1 - oneMinus;
+  },
+};
+
+//// STATE
+const state = {
+  activeProfile: RADIO_PROFILES[0],
+  placed: [],
+  pendingAdv: null,
+  operatorLatLng: [DEMO_SCENARIO.operator.lat, DEMO_SCENARIO.operator.lon],
+  isKeying: false,
+  demoMode10x: false,
+  lastRisk: null,
+  lastSmoothed: 0,
+  bannerVisible: false,
+};
+const scorer = new RiskScorer();
+
+//// MAP
+const map = L.map('map', { zoomControl: true, attributionControl: true })
+  .setView(state.operatorLatLng, 11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap', maxZoom: 18,
+}).addTo(map);
+
+const opIcon = L.divIcon({ className: 'op-marker', iconSize: [14, 14], iconAnchor: [7, 7] });
+const opMarker = L.marker(state.operatorLatLng, { draggable: true, icon: opIcon, title: "Operator (drag to relocate)" }).addTo(map);
+opMarker.on('drag', e => { state.operatorLatLng = [e.latlng.lat, e.latlng.lng]; });
+
+map.on('click', e => {
+  if (!state.pendingAdv) return;
+  placeAdversary(state.pendingAdv, e.latlng.lat, e.latlng.lng);
+  state.pendingAdv = null;
+  document.getElementById('placement-banner').style.display = 'none';
+  document.getElementById('map').classList.remove('placement-cursor');
+});
+
+function placeAdversary(adv, lat, lon) {
+  const platformClass = adv.platform === 'airborne' ? 'adv-marker air' : 'adv-marker';
+  const icon = L.divIcon({ className: platformClass, iconSize: [18, 18], iconAnchor: [9, 9] });
+  const marker = L.marker([lat, lon], { icon, title: adv.display_name }).addTo(map);
+  // Build popup HTML safely via DOM
+  const popDiv = document.createElement('div');
+  const popB = document.createElement('b'); popB.textContent = adv.display_name;
+  const popBr = document.createElement('br');
+  const popMeta = document.createElement('span');
+  popMeta.textContent = `τ=${adv.time_to_fix_seconds}s · range ${adv.platform === 'airborne' ? adv.airborne_range_km : adv.ground_range_km} km`;
+  popDiv.append(popB, popBr, popMeta);
+  marker.bindPopup(popDiv);
+  const circle = L.circle([lat, lon], {
+    radius: (adv.platform === 'airborne' ? adv.airborne_range_km : adv.ground_range_km) * 1000,
+    color: '#cc1f1f', weight: 1.5, fillColor: '#ff1f1f', fillOpacity: 0,
+  }).addTo(map);
+  state.placed.push({
+    key: `${adv.id}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,
+    system: adv, lat, lon, leafletMarker: marker, leafletCircle: circle,
+  });
+  refreshPlacedList();
+}
+
+function clearAllAdversaries() {
+  for (const p of state.placed) {
+    map.removeLayer(p.leafletMarker);
+    map.removeLayer(p.leafletCircle);
+  }
+  state.placed = [];
+  refreshPlacedList();
+}
+
+function loadDemoScenario() {
+  clearAllAdversaries();
+  const sc = DEMO_SCENARIO;
+  state.operatorLatLng = [sc.operator.lat, sc.operator.lon];
+  opMarker.setLatLng(state.operatorLatLng);
+  map.setView(state.operatorLatLng, 11);
+  for (const e of sc.adversaries) {
+    const adv = ADVERSARY_SYSTEMS.find(s => s.id === e.system_id);
+    if (!adv) continue;
+    placeAdversary(adv, e.lat, e.lon);
+  }
+}
+
+//// UI WIRING
+function populateSelects() {
+  const profSel = document.getElementById('profile');
+  RADIO_PROFILES.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.id; o.textContent = p.display_name;
+    profSel.appendChild(o);
+  });
+  profSel.addEventListener('change', e => {
+    state.activeProfile = RADIO_PROFILES.find(p => p.id === e.target.value);
+  });
+  const advSel = document.getElementById('adv-picker');
+  ADVERSARY_SYSTEMS.forEach(a => {
+    const o = document.createElement('option');
+    o.value = a.id; o.textContent = a.display_name;
+    advSel.appendChild(o);
+  });
+}
+
+function refreshPlacedList() {
+  const ul = document.getElementById('placed-list');
+  while (ul.firstChild) ul.removeChild(ul.firstChild);
+  if (state.placed.length === 0) {
+    const li = document.createElement('li');
+    li.textContent = '(none placed)';
+    li.style.fontStyle = 'italic';
+    ul.appendChild(li);
+    return;
+  }
+  for (const p of state.placed) {
+    const li = document.createElement('li');
+    li.textContent = `• ${p.system.display_name}`;
+    ul.appendChild(li);
+  }
+}
+
+document.getElementById('add-asset').addEventListener('click', () => {
+  const sel = document.getElementById('adv-picker');
+  state.pendingAdv = ADVERSARY_SYSTEMS.find(a => a.id === sel.value);
+  const banner = document.getElementById('placement-banner');
+  banner.textContent = `Click on the map to place: ${state.pendingAdv.display_name}`;
+  banner.style.display = 'block';
+  document.getElementById('map').classList.add('placement-cursor');
+});
+
+document.getElementById('clear-assets').addEventListener('click', clearAllAdversaries);
+document.getElementById('load-demo').addEventListener('click', loadDemoScenario);
+
+const keyingBtn = document.getElementById('keying-btn');
+const keyingStatus = document.getElementById('keying-status');
+keyingBtn.addEventListener('click', () => {
+  state.isKeying = !state.isKeying;
+  if (state.isKeying) {
+    keyingBtn.textContent = 'STOP KEYING';
+    keyingBtn.classList.add('keying');
+    keyingStatus.textContent = 'Keying — risk dial active. Stop to reset dwell.';
+  } else {
+    keyingBtn.textContent = 'START KEYING';
+    keyingBtn.classList.remove('keying');
+    keyingStatus.textContent = 'Idle. Press to begin emitting.';
+    scorer.reset();
+  }
+});
+
+document.getElementById('about-btn').addEventListener('click', () => {
+  const dialog = document.getElementById('about-dialog');
+  const content = document.getElementById('about-content');
+  while (content.firstChild) content.removeChild(content.firstChild);
+  const intro = document.createElement('p');
+  intro.style.cssText = 'color:var(--muted); font-size:11px;';
+  intro.textContent = 'Every adversary parameter cited to public sources. EAR99 only — no classified, FOUO, or proprietary data.';
+  content.appendChild(intro);
+  for (const a of ADVERSARY_SYSTEMS) {
+    const div = document.createElement('div'); div.className = 'source-entry';
+    const b = document.createElement('b'); b.textContent = a.display_name;
+    const s = document.createElement('span'); s.textContent = a.source;
+    div.append(b, s);
+    content.appendChild(div);
+  }
+  for (const [name, text] of [
+    ['Propagation model', 'Free-space (Friis) in this simulator. The ATAK plugin uses CloudRF SOOTHSAYER for terrain-aware path loss with FSPL fallback.'],
+    ['Risk model', 'Sigmoid detection (k=0.2) × exponential dwell saturation (1 − e^(−t/τ)) × 1-minus-product composite across assets. Tunable, not learned.'],
+  ]) {
+    const div = document.createElement('div'); div.className = 'source-entry';
+    const b = document.createElement('b'); b.textContent = name;
+    const s = document.createElement('span'); s.textContent = text;
+    div.append(b, s);
+    content.appendChild(div);
+  }
+  dialog.showModal();
+});
+document.getElementById('about-close').addEventListener('click', () => document.getElementById('about-dialog').close());
+document.getElementById('candidate-cancel').addEventListener('click', () => document.getElementById('candidate-dialog').close());
+
+//// DIAL — Canvas
+const dialCanvas = document.getElementById('dial');
+const dialCtx = dialCanvas.getContext('2d');
+
+function colorForScore(s) {
+  if (s < 0.3) return '#2ecc40';
+  if (s < 0.7) return '#ffa500';
+  return '#ff1f1f';
+}
+
+function renderDial(score, dwellSec, topThreatLine) {
+  const W = dialCanvas.width, H = dialCanvas.height;
+  dialCtx.clearRect(0, 0, W, H);
+
+  const cx = W / 2, cy = 110, ringR = 80, ringW = 14;
+  dialCtx.strokeStyle = '#333'; dialCtx.lineWidth = ringW;
+  dialCtx.beginPath(); dialCtx.arc(cx, cy, ringR, 0, 2 * Math.PI); dialCtx.stroke();
+
+  dialCtx.strokeStyle = colorForScore(score);
+  dialCtx.lineWidth = ringW; dialCtx.lineCap = 'round';
+  dialCtx.beginPath();
+  dialCtx.arc(cx, cy, ringR, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * score);
+  dialCtx.stroke();
+
+  dialCtx.fillStyle = '#fff';
+  dialCtx.font = 'bold 38px -apple-system, sans-serif';
+  dialCtx.textAlign = 'center'; dialCtx.textBaseline = 'middle';
+  dialCtx.fillText(score.toFixed(2), cx, cy);
+
+  const mins = Math.floor(dwellSec / 60), secs = Math.floor(dwellSec % 60);
+  dialCtx.fillStyle = '#bbb';
+  dialCtx.font = '12px -apple-system, sans-serif';
+  dialCtx.fillText(`dwell ${mins}m ${String(secs).padStart(2, '0')}s`, cx, cy + ringR + 18);
+
+  if (topThreatLine) {
+    dialCtx.fillStyle = '#888';
+    dialCtx.font = '11px -apple-system, sans-serif';
+    dialCtx.fillText(topThreatLine, cx, cy + ringR + 38);
+  }
+
+  dialCtx.fillStyle = '#666';
+  dialCtx.font = '10px -apple-system, sans-serif';
+  dialCtx.fillText('FREE-SPACE (no terrain)', cx, cy + ringR + 58);
+}
+
+let pressTimer;
+function toggleDemoMode() {
+  state.demoMode10x = !state.demoMode10x;
+  scorer.clock.setTimeScale(state.demoMode10x ? 10.0 : 1.0);
+  document.getElementById('demo-watermark').style.display = state.demoMode10x ? 'block' : 'none';
+  if (tickHandle) {
+    clearInterval(tickHandle);
+    tickHandle = setInterval(tick, state.demoMode10x ? 100 : 1000);
+  }
+}
+['mousedown', 'touchstart'].forEach(ev => dialCanvas.addEventListener(ev, () => {
+  pressTimer = setTimeout(toggleDemoMode, 700);
+}));
+['mouseup', 'mouseleave', 'touchend'].forEach(ev => dialCanvas.addEventListener(ev, () => clearTimeout(pressTimer)));
+
+//// THREAT CIRCLES
+function updateThreatCircles(perAssetLockProb) {
+  for (const p of state.placed) {
+    const pLock = perAssetLockProb.get(p.key) ?? 0;
+    p.leafletCircle.setStyle({
+      fillOpacity: Math.min(0.6, pLock * 0.6),
+      color: pLock > 0.1 ? '#ff1f1f' : '#cc1f1f',
+    });
+  }
+}
+
+//// DISPLACE BANNER + CANDIDATE PICKER
+function updateBanner(score) {
+  const banner = document.getElementById('banner');
+  if (!state.bannerVisible && score >= 0.5) {
+    state.bannerVisible = true;
+    banner.style.display = 'block';
+  } else if (state.bannerVisible && score < 0.4) {
+    state.bannerVisible = false;
+    banner.style.display = 'none';
+  }
+  if (state.bannerVisible) banner.textContent = `DISPLACE — risk ${score.toFixed(2)}`;
+}
+
+document.getElementById('banner').addEventListener('click', () => {
+  if (!state.activeProfile || state.placed.length === 0) return;
+  const candidates = DisplacementSearch.top3(
+    state.lastSmoothed,
+    state.operatorLatLng[0], state.operatorLatLng[1],
+    state.activeProfile, state.placed);
+  const list = document.getElementById('candidate-list');
+  while (list.firstChild) list.removeChild(list.firstChild);
+  for (const c of candidates) {
+    const div = document.createElement('div'); div.className = 'candidate';
+    const compass = ['N','NE','E','SE','S','SW','W','NW'][Math.floor(((c.bearingDeg + 22.5) % 360) / 45)];
+    const text1 = document.createTextNode(`${compass} ${String(c.distanceMeters).padStart(4)} m → predicted risk ${c.predictedComposite.toFixed(2)} `);
+    const b = document.createElement('b'); b.textContent = `(Δ −${c.predictedDelta.toFixed(2)})`;
+    div.append(text1, b);
+    div.addEventListener('click', () => {
+      if (window.routeLine) map.removeLayer(window.routeLine);
+      window.routeLine = L.polyline([
+        state.operatorLatLng, [c.lat, c.lon],
+      ], { color: '#ffce3a', weight: 4, dashArray: '8 6' }).addTo(map);
+      if (window.routeTarget) map.removeLayer(window.routeTarget);
+      window.routeTarget = L.marker([c.lat, c.lon], {
+        icon: L.divIcon({ className: 'op-marker', iconSize: [14, 14], iconAnchor: [7, 7] }),
+        title: `Hide #${candidates.indexOf(c) + 1}`,
+      }).addTo(map);
+      document.getElementById('candidate-dialog').close();
+    });
+    list.appendChild(div);
+  }
+  document.getElementById('candidate-dialog').showModal();
+});
+
+//// AUDIO CUES
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { /* no audio */ }
+  }
+}
+function playTone(freq, durMs, gain = 0.15) {
+  ensureAudio();
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.frequency.value = freq;
+  o.type = 'sine';
+  g.gain.value = gain;
+  o.connect(g).connect(audioCtx.destination);
+  o.start();
+  o.stop(audioCtx.currentTime + durMs / 1000);
+}
+let lastChimeScore = 0;
+function maybeChime(score) {
+  if (lastChimeScore < 0.3 && score >= 0.3 && score < 0.7) playTone(880, 220);
+  if (lastChimeScore < 0.7 && score >= 0.7) {
+    playTone(1320, 180); setTimeout(() => playTone(1320, 180), 220);
+  }
+  lastChimeScore = score;
+}
+
+//// TICK LOOP
+let tickHandle = null;
+function tick() {
+  const now = Date.now();
+  const update = scorer.update(now,
+    state.operatorLatLng[0], state.operatorLatLng[1],
+    state.isKeying, state.activeProfile, state.placed);
+  state.lastRisk = update;
+  state.lastSmoothed = update.displayedScore;
+
+  let topLine = '';
+  if (update.top) {
+    const compass = ['N','NE','E','SE','S','SW','W','NW'][Math.floor(((update.top.bearing + 22.5) % 360) / 45)];
+    topLine = `Top: ${update.top.name.split(' ').slice(0, 2).join(' ')} (${update.top.range.toFixed(1)} km ${compass})`;
+  }
+
+  renderDial(update.displayedScore, update.dwell, topLine);
+  updateThreatCircles(update.perAssetLockProb);
+  updateBanner(update.displayedScore);
+  maybeChime(update.displayedScore);
+}
+
+//// INIT
+populateSelects();
+refreshPlacedList();
+renderDial(0, 0, '');
+tickHandle = setInterval(tick, 1000);
+</script>
+</body>
+</html>

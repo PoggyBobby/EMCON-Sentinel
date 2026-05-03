@@ -6,6 +6,10 @@ EMCON Sentinel is an open-source ATAK-CIV plugin that tells a drone operator whe
 
 Apache-2.0. EAR99. Public OSINT only.
 
+## Try it now (no install)
+
+Open [`sim/index.html`](sim/index.html) in any browser. Single self-contained file with the same math, same OSINT data, and same UI behavior as the ATAK plugin — running on a Leaflet/OpenStreetMap base layer instead of ATAK's native MapView. Tap **Load demo scenario** → long-press the dial → tap **START KEYING** → watch the dial climb from green to red over ~25 s.
+
 ---
 
 ## The 30-second pitch

@@ -9,6 +9,10 @@ Every numeric parameter in `plugin/app/src/main/assets/adversary_df_systems.json
 | **Pole-21** | 1000–2500 MHz | −100 dBm | 8 dBi | 15 km ground / 30 km air | 60 s | Sprotyv G7 (Nov 2023); open Russian milblogger reporting (Telegram, 2024) |
 | **Shipovnik-Aero** | 100–6000 MHz | −115 dBm | 14 dBi | 10 km ground / 20 km air | 75 s | Sprotyv G7 (Nov 2023); Russian EW capability open-source reporting |
 | **Leer-3 (Orlan-10 RB-341V)** | 800–2500 MHz | −95 dBm | 6 dBi | 6 km ground / 25 km air | 45 s | Sprotyv G7 (Nov 2023); Conflict Armament Research Orlan-10 teardown (2022) |
+| **Krasukha-4 (1RL257)** | 8–18 GHz | −118 dBm | 18 dBi | 50 km ground / 250 km air | 60 s | Sprotyv G7 (Nov 2023); CSIS Russian EW capability briefs |
+| **Murmansk-BN** | 3–30 MHz (HF) | −120 dBm | 16 dBi | 100 km ground / 300 km air | 180 s | Sprotyv G7 (Nov 2023); RUSI assessments — strategic HF DF |
+| **Torn-MDM** | 1.5–3000 MHz | −108 dBm | 9 dBi | 30 km ground / 60 km air | 70 s | Sprotyv G7 (Nov 2023); manpack tactical SIGINT/DF, widely deployed in Donbas 2022–2024 |
+| **RB-636 Svet-KU** | 100–8000 MHz | −110 dBm | 11 dBi | 20 km ground / 40 km air | 80 s | Sprotyv G7 (Nov 2023); open Russian MoD trade-show photos and brochures |
 
 All values are **conservative first-order estimates** suitable for an EMCON awareness aid. They are deliberately not ground-truth performance specifications. If you have access to better-cited public numbers (a specific Sprotyv update, a CSIS report number, a RUSI dataset version), open a PR and replace the entry.
 
@@ -30,6 +34,9 @@ All values are **conservative first-order estimates** suitable for an EMCON awar
 - **Silvus SC4240** — Silvus public mesh radio datasheet
 - **HIMERA G1 Pro** — Himera public product specs (Ukrainian-developed encrypted comms)
 - **Generic Wi-Fi GCS** — IEEE 802.11 specs (laptop-class PA)
+- **Autel EVO Max 4T** — Autel public datasheet (OcuSync-class link)
+- **Parrot Anafi USA** — Parrot public datasheet
+- **Rajant Breadcrumb** — Rajant public mesh radio datasheet (sub-GHz + 2.4 GHz dual-band)
 
 ## What we DO NOT use
 
