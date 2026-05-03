@@ -35,7 +35,8 @@
             android:id="@+id/radio_profile_spinner"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp" />
+            android:layout_marginBottom="12dp"
+            android:spinnerMode="dropdown" />
 
         <TextView
             android:layout_width="match_parent"
@@ -55,7 +56,8 @@
         <Spinner
             android:id="@+id/adversary_picker_spinner"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:spinnerMode="dropdown" />
 
         <LinearLayout
             android:layout_width="match_parent"

@@ -1,0 +1,12 @@
+{
+  "id": "indopacom-first-island",
+  "name": "INDOPACOM — first island chain",
+  "subtitle": "PRC posture, contested",
+  "density": "high",
+  "description": "PRC SIGINT/DF posture along the first island chain (Taiwan Strait / Ryukyus / Philippines). Sources: CSIS China Military Watch (2022–2024), Janes Land Warfare Platforms, PLA SSF open-source order-of-battle. Drops DWL-002 passive surveillance (long airborne reach), CHL-906 tactical DF, and a generic airborne SIGINT pod orbit.",
+  "threats": [
+    { "system_id": "prc-dwl-002",                 "bearing_deg": 0,   "range_km": 30, "note": "DWL-002 passive surveillance — multi-static, claimed 400 km vs. airborne emitters" },
+    { "system_id": "prc-chl-906",                 "bearing_deg": 90,  "range_km": 12, "note": "CHL-906 tactical DF vehicle — Borisoglebsk-class analog" },
+    { "system_id": "generic-airborne-sigint-pod", "bearing_deg": 315, "range_km": 35, "note": "Airborne SIGINT (Y-9JB-class) — high orbit, fast TTF" }
+  ]
+}

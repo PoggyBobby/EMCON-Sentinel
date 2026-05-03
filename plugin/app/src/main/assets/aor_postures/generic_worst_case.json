@@ -1,0 +1,13 @@
+{
+  "id": "generic-worst-case",
+  "name": "No intel — worst case",
+  "subtitle": "Apply when you have no S2 brief",
+  "density": "moderate",
+  "description": "Conservative defensive assumption: a peer SIGINT/DF threat exists at typical engagement ranges in every cardinal sector. Use this posture when you have no specific intelligence on what's looking at you. Drops 4 generic threat templates around your current position.",
+  "threats": [
+    { "system_id": "generic-peer-vehicular-df",     "bearing_deg": 0,   "range_km": 4,  "note": "Vehicular DF battery to your N — assume worst case until proven otherwise" },
+    { "system_id": "generic-peer-vehicular-df",     "bearing_deg": 180, "range_km": 6,  "note": "Second vehicular DF echeloned to your S" },
+    { "system_id": "generic-man-portable-hf-df",    "bearing_deg": 90,  "range_km": 2,  "note": "Forward observation post DF E of you" },
+    { "system_id": "generic-airborne-sigint-pod",   "bearing_deg": 270, "range_km": 12, "note": "Airborne SIGINT orbit W of you (20+ km altitude)" }
+  ]
+}

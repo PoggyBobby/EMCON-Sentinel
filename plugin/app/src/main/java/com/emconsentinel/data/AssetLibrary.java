@@ -16,10 +16,14 @@ public final class AssetLibrary {
 
     private final List<AdversarySystem> adversarySystems;
     private final List<RadioProfile> radioProfiles;
+    private final List<AORPosture> postures;
 
-    private AssetLibrary(List<AdversarySystem> adversarySystems, List<RadioProfile> radioProfiles) {
+    private AssetLibrary(List<AdversarySystem> adversarySystems,
+                         List<RadioProfile> radioProfiles,
+                         List<AORPosture> postures) {
         this.adversarySystems = Collections.unmodifiableList(adversarySystems);
         this.radioProfiles = Collections.unmodifiableList(radioProfiles);
+        this.postures = Collections.unmodifiableList(postures);
     }
 
     public List<AdversarySystem> adversarySystems() {
@@ -30,8 +34,28 @@ public final class AssetLibrary {
         return radioProfiles;
     }
 
+    public List<AORPosture> postures() {
+        return postures;
+    }
+
+    public AORPosture findPostureById(String id) {
+        for (AORPosture p : postures) if (p.id.equals(id)) return p;
+        return null;
+    }
+
+    /** Backwards-compat: 2-arg load (no postures). Used by existing tests. */
     public static AssetLibrary load(InputStream adversariesJson, InputStream profilesJson) {
-        return new AssetLibrary(parseAdversaries(adversariesJson), parseProfiles(profilesJson));
+        return new AssetLibrary(parseAdversaries(adversariesJson),
+                parseProfiles(profilesJson),
+                Collections.<AORPosture>emptyList());
+    }
+
+    /** Production load: includes pre-loaded AOR postures. */
+    public static AssetLibrary load(InputStream adversariesJson, InputStream profilesJson,
+                                    List<AORPosture> postures) {
+        return new AssetLibrary(parseAdversaries(adversariesJson),
+                parseProfiles(profilesJson),
+                postures);
     }
 
     private static List<AdversarySystem> parseAdversaries(InputStream is) {

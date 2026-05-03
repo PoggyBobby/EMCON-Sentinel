@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Phone-native bottom sheet. Collapsed = 32dp drag handle. Expanded = ~50%
+     of screen height with 3 tabs (Radio / Threats / Operate). Drag handle
+     doubles as a tap-to-toggle target. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#F0000000"
+    android:elevation="8dp">
+
+    <!-- Drag handle row -->
+    <LinearLayout
+        android:id="@+id/sheet_handle_row"
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:background="#FF111111"
+        android:clickable="true"
+        android:focusable="true">
+
+        <View
+            android:layout_width="40dp"
+            android:layout_height="4dp"
+            android:background="#FF666666" />
+
+        <TextView
+            android:id="@+id/sheet_handle_label"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="EMCON SENTINEL"
+            android:textColor="#FFCCCCCC"
+            android:textSize="10sp"
+            android:layout_marginStart="10dp"
+            android:singleLine="true"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/sheet_handle_caret"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="▲"
+            android:textColor="#FFCCCCCC"
+            android:textSize="14sp" />
+
+    </LinearLayout>
+
+    <!-- Tab strip (visible only when expanded) -->
+    <LinearLayout
+        android:id="@+id/sheet_tab_strip"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:background="#FF111111">
+
+        <TextView
+            android:id="@+id/tab_btn_radio"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="RADIO"
+            android:textColor="#FFFFFFFF"
+            android:textStyle="bold"
+            android:textSize="11sp"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="#FF2A2A2A" />
+
+        <TextView
+            android:id="@+id/tab_btn_threats"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="POSTURE"
+            android:textColor="#FFCCCCCC"
+            android:textSize="11sp"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/tab_btn_operate"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="OPERATE"
+            android:textColor="#FFCCCCCC"
+            android:textSize="11sp"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true" />
+
+    </LinearLayout>
+
+    <!-- Content frame — one of the tab content views inflated into here -->
+    <FrameLayout
+        android:id="@+id/sheet_content_frame"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#FF000000" />
+
+</LinearLayout>

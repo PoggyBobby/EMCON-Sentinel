@@ -32,14 +32,23 @@ public final class AdversaryPlacer {
             @Override public void onMapEvent(MapEvent event) {
                 AdversarySystem pending = state.consumePendingPlacement();
                 if (pending == null) return;
-                GeoPoint p = event.getPoint() == null ? null : null;
                 // MapEvent for MAP_CLICK doesn't carry GeoPoint directly — pull from pixel via inverse
                 android.graphics.PointF pt = event.getPointF();
                 if (pt == null) {
                     Log.w(TAG, "MAP_CLICK event has no PointF — cannot place");
                     return;
                 }
-                GeoPoint geo = mapView.inverse(pt.x, pt.y).get();
+                GeoPoint geo;
+                try {
+                    geo = mapView.inverse(pt.x, pt.y).get();
+                } catch (Exception ex) {
+                    Log.w(TAG, "screen→geo inverse failed: " + ex);
+                    return;
+                }
+                if (geo == null) {
+                    Log.w(TAG, "screen→geo inverse returned null");
+                    return;
+                }
                 placeAt(pending, geo);
             }
         };
@@ -54,16 +63,25 @@ public final class AdversaryPlacer {
     }
 
     public void placeAt(AdversarySystem adv, GeoPoint geo) {
-        Marker marker = new Marker(geo, UUID.randomUUID().toString());
-        marker.setTitle("EMCON: " + adv.displayName);
-        marker.setMetaString("emcon-adversary-id", adv.id);
-        marker.setMetaString("emcon-platform", adv.platform.name());
-        marker.setColor(0xFFFF1F1F);
-        marker.setAlwaysShowText(true);
-        marker.setType(adv.platform == AdversarySystem.Platform.AIRBORNE
-                ? "a-h-A" : "a-h-G");
-        mapView.getRootGroup().addItem(marker);
-        state.addPlaced(new PlacedAdversary(adv, geo.getLatitude(), geo.getLongitude()));
-        Log.i(TAG, "placed " + adv.id + " at " + geo.getLatitude() + ", " + geo.getLongitude());
+        placeAt(adv, geo, false);
+    }
+
+    public void placeAt(AdversarySystem adv, GeoPoint geo, boolean hidden) {
+        // Hidden = on the map but invisible to the operator until ARGUS reveals.
+        // We don't drop a Marker in that case (marker = visible). Just record in
+        // PluginState. When ARGUS detects, the next risk-tick will draw the circle.
+        if (!hidden) {
+            Marker marker = new Marker(geo, UUID.randomUUID().toString());
+            marker.setTitle("EMCON: " + adv.displayName);
+            marker.setMetaString("emcon-adversary-id", adv.id);
+            marker.setMetaString("emcon-platform", adv.platform.name());
+            marker.setColor(0xFFFF1F1F);
+            marker.setAlwaysShowText(true);
+            marker.setType(adv.platform == AdversarySystem.Platform.AIRBORNE
+                    ? "a-h-A" : "a-h-G");
+            mapView.getRootGroup().addItem(marker);
+        }
+        state.addPlaced(new PlacedAdversary(adv, geo.getLatitude(), geo.getLongitude(), hidden));
+        Log.i(TAG, (hidden ? "placed-hidden " : "placed ") + adv.id + " at " + geo.getLatitude() + ", " + geo.getLongitude());
     }
 }
