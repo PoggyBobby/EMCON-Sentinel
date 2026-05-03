@@ -1,0 +1,77 @@
+{
+  "version": "2026-05-03",
+  "name": "CENTCOM-Drone — ARGUS scan",
+  "description": "Three ARGUS UAS conduct progressive SIGINT scan of the Strait of Hormuz / Gulf of Oman littoral. Iranian COMINT and generic peer DF assets are pre-placed but invisible to the operator — the dial reflects only adversaries the ARGUS fleet has actively detected. As drones loiter, the threat picture builds in real time.",
+  "operator": {
+    "lat": 26.5650,
+    "lon": 56.2500,
+    "label": "Operator FOB (Strait of Hormuz)"
+  },
+  "argus_drones": [
+    {
+      "id": "argus-1",
+      "callsign": "ARGUS-1",
+      "altitude_m": 5000,
+      "scan_radius_km": 18,
+      "speed_kmh": 200,
+      "waypoints": [
+        { "lat": 26.7000, "lon": 56.2300 },
+        { "lat": 26.7000, "lon": 56.4500 },
+        { "lat": 26.6000, "lon": 56.4500 },
+        { "lat": 26.6000, "lon": 56.2300 }
+      ]
+    },
+    {
+      "id": "argus-2",
+      "callsign": "ARGUS-2",
+      "altitude_m": 4500,
+      "scan_radius_km": 15,
+      "speed_kmh": 180,
+      "waypoints": [
+        { "lat": 26.4500, "lon": 56.1200 },
+        { "lat": 26.4500, "lon": 56.3500 },
+        { "lat": 26.5500, "lon": 56.3500 },
+        { "lat": 26.5500, "lon": 56.1200 }
+      ]
+    },
+    {
+      "id": "argus-3",
+      "callsign": "ARGUS-3",
+      "altitude_m": 6000,
+      "scan_radius_km": 22,
+      "speed_kmh": 220,
+      "waypoints": [
+        { "lat": 26.3500, "lon": 56.5000 },
+        { "lat": 26.6500, "lon": 56.6500 },
+        { "lat": 26.8000, "lon": 56.4000 },
+        { "lat": 26.5500, "lon": 56.2000 }
+      ]
+    }
+  ],
+  "hidden_adversaries": [
+    {
+      "system_id": "iri-comint-vehicle",
+      "lat": 26.6500,
+      "lon": 56.2700,
+      "note": "Iranian COMINT vehicle on coastal road N — hidden until ARGUS-1 passes overhead"
+    },
+    {
+      "system_id": "iri-comint-vehicle",
+      "lat": 26.4900,
+      "lon": 56.3000,
+      "note": "Second Iranian COMINT van inland SE — hidden until ARGUS-2 reaches loiter point"
+    },
+    {
+      "system_id": "generic-peer-vehicular-df",
+      "lat": 26.5200,
+      "lon": 56.4800,
+      "note": "Generic peer wide-band DF SE — hidden until ARGUS-3 wraps the eastern leg"
+    },
+    {
+      "system_id": "generic-airborne-sigint-pod",
+      "lat": 26.7800,
+      "lon": 56.4200,
+      "note": "Iranian airborne SIGINT (Saegheh-derived) — high orbit N, hidden until any ARGUS gets close"
+    }
+  ]
+}

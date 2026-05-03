@@ -15,6 +15,20 @@
         </intent>
     </queries>
 
+    <!-- CoT federation + C2 bridge use UDP multicast on 239.2.3.x. INTERNET is
+         needed to send packets at all; multicast on Android wifi additionally
+         requires acquiring a WifiManager.MulticastLock. ESRI/OSM tile fetch
+         also needs INTERNET. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <!-- READ_PHONE_STATE lets PhoneEmitterMonitor read cellular network type +
+         signal class to surface the phone's own RF emissions in the risk model.
+         Treated as runtime perm on Android 6+; degraded gracefully if denied. -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!-- BLUETOOTH_CONNECT is needed on Android 12+ to enumerate BT adapter state. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
     <application
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"

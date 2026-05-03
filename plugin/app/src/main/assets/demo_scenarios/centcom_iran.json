@@ -1,0 +1,30 @@
+{
+  "version": "2026-05-03",
+  "name": "CENTCOM — Iranian COMINT corridor",
+  "description": "Synthetic CENTCOM scenario in the Strait of Hormuz. Operator runs a small ISR UAS off a forward operating base. Iranian-style assets are pre-placed: a vehicular COMINT van on the coastal road, a generic peer wide-band DF further inland, and a generic airborne SIGINT pod on a high-altitude orbit. Demonstrates the same EMCON math against Iranian/peer threat templates — operator must avoid lock at sub-90s dwell.",
+  "operator": {
+    "lat": 26.5650,
+    "lon": 56.2500,
+    "label": "Operator FOB"
+  },
+  "adversaries": [
+    {
+      "system_id": "iran-comint-vehicle",
+      "lat": 26.6500,
+      "lon": 56.2700,
+      "note": "Iranian COMINT vehicle ~10 km NE — coastal road, direct LoS"
+    },
+    {
+      "system_id": "generic-peer-vehicular-df",
+      "lat": 26.5450,
+      "lon": 56.3550,
+      "note": "Generic peer wide-band DF ~10 km E — vehicular SIGINT/DF asset"
+    },
+    {
+      "system_id": "generic-airborne-sigint-pod",
+      "lat": 26.6800,
+      "lon": 56.1900,
+      "note": "Airborne SIGINT pod ~13 km NW — high-orbit, fast time-to-fix"
+    }
+  ]
+}
