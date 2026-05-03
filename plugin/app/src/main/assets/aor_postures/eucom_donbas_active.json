@@ -1,0 +1,14 @@
+{
+  "id": "eucom-donbas-active",
+  "name": "EUCOM — Donbas active EW",
+  "subtitle": "High density, contact line",
+  "density": "high",
+  "description": "Russian active-EW posture along the Donbas line of contact (2024–2025 reporting). Sources: Sprotyv G7 Russian EW Systems Analytic Insight Report (Nov 2023), CSIS Russia EW briefs, RUSI assessments, Telegram milblogger reporting. Drops a representative mix of Borisoglebsk-class vehicular DF, Pole-21 EW belt, Leer-3 BPLA-derived COMINT, and Murmansk-BN strategic HF DF.",
+  "threats": [
+    { "system_id": "rb-301b-borisoglebsk-2",  "bearing_deg": 30,  "range_km": 12, "note": "Borisoglebsk-2 (RB-301B) battery — 30–3000 MHz, vehicular" },
+    { "system_id": "pole-21",         "bearing_deg": 60,  "range_km": 6,  "note": "Pole-21 EW belt — 1–2.5 GHz GNSS/comms band" },
+    { "system_id": "leer-3", "bearing_deg": 180, "range_km": 5,  "note": "Leer-3 / Orlan-10 RB-341V — Orlan-borne COMINT, fast TTF" },
+    { "system_id": "shipovnik-aero",  "bearing_deg": 120, "range_km": 10, "note": "Shipovnik-Aero — wideband SIGINT with high antenna gain" },
+    { "system_id": "murmansk-bn",     "bearing_deg": 270, "range_km": 80, "note": "Murmansk-BN strategic HF DF — long range, slow TTF" }
+  ]
+}

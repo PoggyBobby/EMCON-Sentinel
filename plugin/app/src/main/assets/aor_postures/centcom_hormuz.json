@@ -1,0 +1,12 @@
+{
+  "id": "centcom-hormuz",
+  "name": "CENTCOM — Strait of Hormuz",
+  "subtitle": "Iranian peer posture",
+  "density": "medium",
+  "description": "Iranian / IRGC peer SIGINT posture in the Strait of Hormuz / Gulf of Oman littoral. Sources: RUSI 2023 IRGC EW assessments. Specific Iranian system identifications are limited; templated to peer-vehicular profile. Drops Iranian COMINT vehicle on the coastal road, generic peer DF inland, and a generic airborne pod orbit.",
+  "threats": [
+    { "system_id": "iri-comint-vehicle",         "bearing_deg": 30,  "range_km": 10, "note": "Iranian COMINT vehicle on coastal road — direct LoS" },
+    { "system_id": "generic-peer-vehicular-df",   "bearing_deg": 90,  "range_km": 15, "note": "Generic peer wide-band DF inland" },
+    { "system_id": "generic-airborne-sigint-pod", "bearing_deg": 315, "range_km": 18, "note": "Airborne SIGINT pod orbit — Saegheh-derived UAS" }
+  ]
+}

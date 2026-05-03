@@ -1,0 +1,12 @@
+{
+  "id": "eucom-rear",
+  "name": "EUCOM — Donbas rear",
+  "subtitle": "Medium density, behind FLOT",
+  "density": "medium",
+  "description": "Reduced posture for operations behind the line of contact in EUCOM AOR. Vehicular DF echeloned further away, no manpack DF on top of you, but Krasukha-class long-range jammers and strategic HF DF still cover the area. Use for staging areas, supply routes, rear command posts.",
+  "threats": [
+    { "system_id": "rb-301b-borisoglebsk-2",  "bearing_deg": 0,   "range_km": 25, "note": "Borisoglebsk-2 echeloned to N — beyond direct ground LoS" },
+    { "system_id": "krasukha-4",      "bearing_deg": 45,  "range_km": 35, "note": "Krasukha-4 — 8–18 GHz long-range jamming/SIGINT" },
+    { "system_id": "murmansk-bn",     "bearing_deg": 270, "range_km": 100, "note": "Murmansk-BN strategic HF DF — wide AOR coverage" }
+  ]
+}

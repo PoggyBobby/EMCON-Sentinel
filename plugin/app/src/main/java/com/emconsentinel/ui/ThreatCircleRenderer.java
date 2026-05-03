@@ -35,9 +35,12 @@ public final class ThreatCircleRenderer {
     }
 
     public void apply(List<PlacedAdversary> placed, Map<String, Double> perAssetLockProb) {
-        // Add or update circles for placed adversaries
+        // Add or update circles for placed adversaries (skip hidden ones — those
+        // are ARGUS-undetected threats that the operator shouldn't see yet)
         java.util.Set<String> seen = new java.util.HashSet<>();
         for (PlacedAdversary p : placed) {
+            if (p.hidden) continue;
+            if (p.system == null) continue;       // P0: corrupt scenario JSON
             String key = circleKey(p);
             seen.add(key);
             DrawingCircle c = circles.get(key);
