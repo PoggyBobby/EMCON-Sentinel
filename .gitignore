@@ -35,3 +35,12 @@ Thumbs.db
 
 # Scratch
 scratch/
+
+# Screenshots and demo videos — large binaries, not committed.
+# (Hosted on GitHub Releases or in a separate media branch if needed.)
+docs/screenshots/
+docs/*.mp4
+docs/*.mov
+docs/*.webm
+*.mp4
+*.mov
