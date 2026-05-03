@@ -1,270 +1,112 @@
 # EMCON Sentinel
 
-**Real-time DF-risk dashboard for drone operators, in ATAK.**
+**Real-time RF detectability dashboard for drone operators. ATAK-CIV plugin.**
 
-EMCON Sentinel is an open-source ATAK-CIV plugin that tells a drone operator when accumulated stay-time has made them locatable by adversary direction-finding assets. When risk crosses threshold it proactively suggests displacement positions — one tap drops a route to the chosen hide via ATAK's native route engine and resets the timer.
-
-Apache-2.0. EAR99. Public OSINT only.
-
-## Try it now (no install)
-
-Open [`sim/index.html`](sim/index.html) in any browser. Single self-contained file with the same math, same OSINT data, and same UI behavior as the ATAK plugin — running on a Leaflet/OpenStreetMap base layer instead of ATAK's native MapView. Tap **Load demo scenario** → long-press the dial → tap **START KEYING** → watch the dial climb from green to red over ~25 s.
+> Converts *"I don't know if I'm exposed"* into *"I have 45 seconds to move 200m NW."*
 
 ---
 
-## The 30-second pitch
+## The problem
 
-**The category — operator-side EMCON awareness — is empty.** Every adjacent commercial product (DroneShield, Anduril Pulsar, CRFS RFeye, CloudRF SOOTHSAYER) either looks at the **enemy's** emissions or models **friendly** coverage. None closes the loop on the **friendly operator's own behavioral risk**: how locatable am *I* right now, given how long I've been keying, on what band, with what adversary DF in range?
+Drone operators in Ukraine are dying because Russian SIGINT/DF assets locate them via the RF emissions of their drone control links and FPV video. Once triangulated, fires (artillery, Lancet, Shahed, hunter-killer FPV) follow in 3–30 minutes.
 
-EMCON Sentinel does. It's a fuel gauge for getting killed: when stay-time on a contested band crosses the locate-and-strike threshold, the dial turns red and the plugin proactively suggests displacement positions in tactical reach.
+Operators today have **zero real-time awareness** of their RF signature relative to known threats. Their only defense is rules of thumb ("don't key more than 10 minutes from one spot") that are radio-agnostic and threat-agnostic.
 
-The most acute current proof point is **Russian counter-drone DF in Ukraine** — Rubicon teams running sensor-to-shooter cycles under two minutes. The same problem applies wherever a small-UAS operator keys a radio in contested EW: PRC SIGINT against US/allied forces in INDOPACOM, IRGC EW in CENTCOM, peer-templated threats in CONUS Red Team exercises, NATO partners on the Eastern Flank. Same math, swap the adversary library.
+## The solution
 
-**Audience:** Army drone operators (159th, 160th SOAR, Ranger Regt, conventional MFE), MARSOC, NSW, AFSOC, partner-nation forces using ATAK-CIV, civilian critical-infrastructure inspection teams in unfriendly airspace.
+A phone-sized ATAK plugin that gives the operator a live composite-risk number, a plain-English status (SAFE / CAUTION / MOVE NOW), and a quantified displacement recommendation when risk crosses red.
 
----
+Runs on the same Android phone an operator already carries for ATAK. Free. Open source. EAR99 — no export restrictions.
 
 ## How it works
 
+| Input | Source |
+|---|---|
+| Operator radio (EIRP, freq, duty) | One-tap pick from 10 bundled profiles (or add your own) |
+| Operator GPS | Phone GPS via ATAK's self marker |
+| Adversary threats | One-tap AOR posture (5 curated worst-case envelopes) **or** S2-fed specific positions |
+
+**Math:** Friis path-loss → per-band detection sigmoid → exponential dwell saturation → 1-minus-product composite across all assets → 5-second smoothed.
+
+**Output:** Risk dial (0–100%) + plain-English status + threat list + displacement candidate routes.
+
+## What you see
+
+| State | HUD shows | What to do |
+|---|---|---|
+| Green / SAFE | `SAFE — ~90s budget` | Keep working |
+| Amber / CAUTION | `CAUTION — fix in ~45s` | Plan to move |
+| Red / MOVE NOW | `MOVE NOW` + DISPLACE modal with 3 candidate routes | Move now |
+
+## Quick start
+
+1. Install ATAK-CIV 4.6.0 on an Android phone (one of the public DoD GitHub releases)
+2. Sideload `app-civ-debug.apk`: `adb install -r ATAK-Plugin-EmconSentinel-*-civ-debug.apk`
+3. Open ATAK → hamburger → **Plugins** → enable **EMCON Sentinel** → restart ATAK
+4. Tile shows up in Tools menu. Tap to open the bottom sheet.
+
+The plugin auto-applies a worst-case threat posture around your GPS — so the dial works from minute zero with no S2 brief.
+
+## Why on a phone
+
+Drone operators already run ATAK on phones (Kropyva, Delta, ATAK-CIV). They can't add a laptop to a ruck. This is a $0 capability upgrade.
+
+## What it doesn't do
+
+- Doesn't jam, deceive, or hide your signal
+- Doesn't protect against incoming rounds
+- Doesn't tell you where the adversary is (use the worst-case posture or feed your own intel)
+- Assumes ATAK is already running and the phone has GPS
+
+## What's real vs. what's modeled
+
+Be honest: the tool today is a **planning aid + applied-physics calculator with one real sensor input** (the phone's own radios). It is not a full-spectrum RF detector.
+
+| Signal | How it's sourced | Real or modeled? |
+|---|---|---|
+| Operator's drone radio EIRP / freq / duty | Vendor datasheets (bundled radio profiles) | **Real parameters, modeled emission** — you tap "START KEYING" to assert "I am transmitting now" |
+| Operator's phone-side emissions (cellular/WiFi/BT) | Android `TelephonyManager` + `WifiManager` + `BluetoothAdapter` polled every 5 s | **Real, observed live** — `PhoneEmitterMonitor` reads system services |
+| Adversary positions | Operator-placed OR AOR posture template OR ARGUS-revealed | **Either operator-asserted or template** (no RF detection of passive DF receivers) |
+| Adversary parameters (sensitivity, antenna gain, freq range) | Sprotyv G7 / CSIS / RUSI / Janes catalogs | **Real published numbers** |
+| Path loss | Friis equation (free-space) — CloudRF stub for terrain | **Real physics** |
+| Detection probability | Logistic sigmoid on link margin | **Real detection theory** |
+| Dwell time | Local timer, gated by 50 m radius | **Real, observed** — but presupposes you accurately tagged keying start/stop |
+| C2 radio TX state (LR900-F etc.) | `tools/c2_bridge.py` reads MAVLink RADIO_STATUS from ground-side radio | **Real when both ground+air radios are paired** (SiK firmware needs a peer to emit diagnostics) |
+
+**Three sensing tiers:**
+
+1. **Today (works):** phone-side `PhoneEmitterMonitor` — your phone IS at the operator's location and is itself a high-EIRP emitter; DF locks those bands too. The risk loop merges phone bands with the chosen drone radio so the dial reflects the FULL operator signature.
+2. **Today (works if both radios paired):** `tools/c2_bridge.py` reads MAVLink RADIO_STATUS from the ground-side LR900-F. When the air-side is also powered, the bridge gets real TX/RX/RSSI. When jammed, the local diagnostic packets keep flowing — it's the radio talking about itself, not derived from receiving the drone.
+3. **Roadmap (needs hardware):** RTL-SDR via USB-OTG for direct ambient-RF measurement. Detect adversary jammers turning on, confirm own-radio TX, see what's actually in the spectrum. ~1-2 weeks of work + needs SDR hardware.
+
+The strongest claim today is **"the phone radios feeding the dial are observed live, and the math is real."** Everything else above is real-physics modeling on top of operator-asserted state.
+
+## Architecture
+
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  ATAK-CIV (Android tablet, dev-ATAK 4.6.0.5)                    │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │ EMCON Sentinel Plugin — com.emconsentinel.plugin         │   │
-│  │                                                          │   │
-│  │  UI Layer (Phase 4)                                      │   │
-│  │   • DropDown setup pane   (radio profile, Add Asset,     │   │
-│  │                            Start/Stop Keying, About)     │   │
-│  │   • RiskDialView          floating bottom-right          │   │
-│  │   • ThreatCircleRenderer  per-adversary translucent      │   │
-│  │                            DrawingCircles, alpha=P_lock  │   │
-│  │   • DisplaceBanner        top-of-map at risk≥0.5         │   │
-│  │   • Route handoff         ATAK Route engine, persisted   │   │
-│  │           ▲                                              │   │
-│  │   1 Hz    │ updates                                      │   │
-│  │  ┌────────┴────────┐   ┌──────────────────┐              │   │
-│  │  │ RiskScorer      │←──│ Propagation      │              │   │
-│  │  │  (Phase 3)      │   │ Engine (Phase 2) │              │   │
-│  │  │ • DwellClock    │   │ • CloudRF API    │              │   │
-│  │  │   (50 m radius) │   │ • FSPL fallback  │              │   │
-│  │  │ • per-asset     │   │ • Friis + sigmoid│              │   │
-│  │  │   P_lock(t)     │   │ • per-band detect│              │   │
-│  │  │ • composite     │   │                  │              │   │
-│  │  │ • 5-s smoothing │   │                  │              │   │
-│  │  └────────┬────────┘   └──────────┬───────┘              │   │
-│  │           │                       │                      │   │
-│  │  ┌────────┴───────────────────────┴───────┐              │   │
-│  │  │ Data Layer (Phase 1)                   │              │   │
-│  │  │ • adversary_df_systems.json (5 OSINT)  │              │   │
-│  │  │ • radio_profiles.json (6 presets)      │              │   │
-│  │  │ • demo_scenarios/rubicon_pokrovsk.json │              │   │
-│  │  └────────────────────────────────────────┘              │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-       ↑                             ↑
-   GPS / map                    HTTPS → api.cloudrf.com
-   (from ATAK)                  (with FSPL fallback if unreachable)
-```
-
-The math: per adversary `i`,
-
-```
-P_lock_i(t) = P_detect_i × (1 − exp(−t / τ_i))
-P_compromise = 1 − Π_i (1 − P_lock_i)
-displayed = MovingAverage(5 s).push(P_compromise)
-```
-
-`P_detect_i` is a sigmoid on the link-budget margin in dB:
-
-```
-margin = (operator EIRP − path loss + adversary antenna gain) − adversary sensitivity
-P_detect = 1 / (1 + exp(−0.2 × margin))
-```
-
-`τ_i` is the adversary's published time-to-fix (Zhitel ≈ 90 s, Borisoglebsk-2 ≈ 120 s, Leer-3/Orlan-10 ≈ 45 s).
-
----
-
-## What's in the box
-
-```
-emcon-sentinel/
-├── plugin/                                      Android plugin module (Apache-2.0)
-│   └── app/src/main/
-│       ├── assets/
-│       │   ├── adversary_df_systems.json        5 systems, every entry cited to OSINT
-│       │   ├── radio_profiles.json              6 presets (Mavic 3, FPV+Crossfire, …)
-│       │   └── demo_scenarios/rubicon_pokrovsk.json
-│       └── java/com/emconsentinel/
-│           ├── data/         JSON loaders + POJOs
-│           ├── prop/         FSPL + CloudRF + sigmoid link budget
-│           ├── risk/         DwellClock + RiskScorer + DisplacementSearch
-│           ├── ui/           RiskDialView + ThreatCircleRenderer + DisplaceBanner
-│           └── util/         Geo (haversine, bearing, destination)
-├── docs/
-│   ├── plans/2026-05-02-emcon-sentinel.md       implementation plan
-│   ├── demo_script.md                           3-minute spoken script for the demo video
-│   ├── osint_sources.md                         every adversary parameter, with citation
-│   └── ATAK_Plugin_Structure_Guide.pdf          (gitignored — DoD-distributed)
-└── LICENSE                                      Apache-2.0
+plugin/app/src/main/
+├── assets/
+│   ├── adversary_df_systems.json   # 15 published OSINT systems (Sprotyv, CSIS, RUSI)
+│   ├── radio_profiles.json         # 10 operator radios (Crossfire, DJI, Skydio, MicoAir, etc.)
+│   ├── aor_postures/               # 5 curated worst-case AOR envelopes
+│   ├── demo_scenarios/             # Named historical scenarios (Pokrovsk / Pacific island / Hormuz)
+│   └── mobac/                      # ESRI World Imagery + OSM tile sources
+└── java/com/emconsentinel/
+    ├── data/                       # POJO + JSON loaders
+    ├── prop/                       # Path-loss engines (Friis, CloudRF stub)
+    ├── risk/                       # RiskScorer, DwellClock, DisplacementSearch
+    ├── ui/                         # TopHudStrip, BottomSheetController, tabs, modals
+    ├── argus/                      # Simulated friendly UAS that scan for hidden threats
+    ├── cot/                        # CoT (Cursor-on-Target) federation over multicast
+    └── c2/                         # MAVLink telemetry bridge for real RF detection
 ```
 
----
+## OSINT sources
 
-## Build
+Every adversary number traces to public reporting (Sprotyv G7, CSIS, RUSI, Conflict Armament Research, Janes, Telegram milblogger reporting). See [`docs/osint_sources.md`](docs/osint_sources.md) for the citation table.
 
-**Prereqs (macOS):**
-
-```bash
-brew install openjdk@17 gradle
-brew install --cask android-commandlinetools
-yes | sdkmanager --licenses
-sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" \
-  "emulator" "system-images;android-34;google_apis;arm64-v8a"
-```
-
-**Get the public ATAK-CIV SDK** (no TAK.gov account needed — DoD publishes it):
-
-```bash
-mkdir -p ~/Desktop/EmconSentinel/sdk
-curl --retry 5 -L \
-  https://github.com/deptofdefense/AndroidTacticalAssaultKit-CIV/releases/download/4.6.0.5/atak-civ-sdk-4.6.0.5.zip \
-  -o ~/Desktop/EmconSentinel/sdk/atak-civ-sdk-4.6.0.5.zip
-cd ~/Desktop/EmconSentinel/sdk
-python3 -c "import zipfile; zipfile.ZipFile('atak-civ-sdk-4.6.0.5.zip').extractall('.')"
-```
-
-**Generate a debug keystore** (used to sign both the plugin and the dev-ATAK so signature trust passes):
-
-```bash
-keytool -genkey -v \
-  -keystore ~/Desktop/EmconSentinel/plugin/debug.keystore \
-  -alias androiddebugkey -storepass android -keypass android \
-  -keyalg RSA -keysize 2048 -validity 10000 \
-  -dname "CN=EMCON Sentinel Debug, O=EMCON Sentinel, C=US"
-```
-
-**Local config** — create `plugin/local.properties` (gitignored):
-
-```properties
-sdk.dir=/opt/homebrew/share/android-commandlinetools
-sdk.path=/Users/<you>/Desktop/EmconSentinel/sdk/atak-civ
-takdev.plugin=/Users/<you>/Desktop/EmconSentinel/sdk/atak-civ/atak-gradle-takdev.jar
-takDebugKeyFile=/Users/<you>/Desktop/EmconSentinel/plugin/debug.keystore
-takDebugKeyFilePassword=android
-takDebugKeyAlias=androiddebugkey
-takDebugKeyPassword=android
-takReleaseKeyFile=/Users/<you>/Desktop/EmconSentinel/plugin/debug.keystore
-takReleaseKeyFilePassword=android
-takReleaseKeyAlias=androiddebugkey
-takReleaseKeyPassword=android
-```
-
-**Build:**
-
-```bash
-cd ~/Desktop/EmconSentinel/plugin
-JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home \
-  ./gradlew :app:testCivDebugUnitTest :app:assembleCivDebug \
-  -Dorg.gradle.java.home="$JAVA_HOME"
-```
-
-Outputs `app/build/outputs/apk/civ/debug/ATAK-Plugin-EmconSentinel-1.0-*-civ-debug.apk` (~170 KB).
-
----
-
-## Run
-
-**Re-sign the bundled dev-ATAK with your debug keystore** (so its signature matches the plugin's — required for plugin trust):
-
-```bash
-APKSIGNER=/opt/homebrew/share/android-commandlinetools/build-tools/34.0.0/apksigner
-cp ~/Desktop/EmconSentinel/sdk/atak-civ/atak.apk ~/Desktop/EmconSentinel/sdk/atak-civ/atak-resigned.apk
-$APKSIGNER sign --ks ~/Desktop/EmconSentinel/plugin/debug.keystore \
-  --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android \
-  ~/Desktop/EmconSentinel/sdk/atak-civ/atak-resigned.apk
-```
-
-**Boot emulator + install:**
-
-```bash
-echo no | avdmanager create avd -n EmconTablet -k "system-images;android-34;google_apis;arm64-v8a" --force
-$ANDROID_HOME/emulator/emulator -avd EmconTablet -no-window -no-snapshot -no-audio &
-adb wait-for-device
-until [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; do sleep 3; done
-adb shell wm size 1280x800
-
-adb install -r ~/Desktop/EmconSentinel/sdk/atak-civ/atak-resigned.apk
-adb install -r ~/Desktop/EmconSentinel/plugin/app/build/outputs/apk/civ/debug/ATAK-Plugin-EmconSentinel-*-civ-debug.apk
-adb shell am start -n com.atakmap.app.civ/com.atakmap.app.ATAKActivity
-```
-
-(Or just sideload onto a real Android tablet via `adb install`. ATAK 4.6.0.5 first run is a EULA + permissions + filesystem-access toggle + encryption-passphrase wizard — accept all to reach the map view.)
-
-**Once on the map:**
-
-1. Tap the EMCON Sentinel toolbar button.
-2. Pick a radio profile (top of the pane).
-3. Tap **Load Demo Scenario** to drop the Rubicon-Pokrovsk three-asset scenario.
-4. (Optional) Long-press the risk dial in the bottom-right to flip **DEMO MODE 10×**.
-5. Tap **START KEYING**. The dial climbs amber → red over ~25 s (10×) or ~4 min (real-time). Threat circles deepen as per-asset lock probability grows.
-6. When the **DISPLACE — risk 0.62** banner appears at top-of-map, tap it. Pick one of the three candidates. ATAK drops a route to that hide.
-7. Manually drag the operator marker to the candidate. Tap **START KEYING** again. Dial stays green.
-
----
-
-## Run the demo scenario
-
-`assets/demo_scenarios/rubicon_pokrovsk.json` ships with the plugin. **Load Demo Scenario** in the setup pane drops three adversaries on a fictional eastern-Ukraine grid:
-
-| Asset | Distance | Bearing | τ (time to fix) |
-|---|---|---|---|
-| R-330Zh Zhitel | 8 km | E | 90 s |
-| Borisoglebsk-2 (RB-301B) | 14 km | SE | 120 s |
-| Leer-3 (Orlan-10 RB-341V) | 12 km | NE airborne | 45 s |
-
-In DEMO MODE 10×, total time to red is ~60 s. Without 10× it's ~4–5 min, mirroring real Rubicon sensor-to-shooter cycles.
-
----
-
-## Limitations
-
-- **No real SDR ingestion.** Keying is a synthetic toggle the operator drives by hand. v2 stretch goal is HackRF One + Python sidecar publishing detections.
-- **OSINT-only adversary parameters.** Sensitivity, antenna gain, and time-to-fix come from the Sprotyv G7 Russian EW Systems Analytic Insight Report (Nov 2023), CSIS, RUSI, Conflict Armament Research, and open Russian milblogger reporting. They are conservative first-order estimates, not ground-truth performance data.
-- **Free-space fallback when CloudRF is unreachable or unkeyed.** The dial shows a "FREE-SPACE FALLBACK — TERRAIN NOT MODELED" banner whenever the propagation engine is in FSPL mode. Free-space is the **optimistic** case for the adversary (no terrain blockage), so risk numbers in fallback mode are upper bounds.
-- **Linear sigmoid detection model.** `k = 0.2`, midpoint 0 dB. 50% detection at the noise floor, 88% at +10 dB margin, 12% at −10 dB. Tunable but not learned. No ML.
-- **Hackathon signing.** Both ATAK and the plugin are debug-signed with the same self-generated keystore so signature trust passes locally. For Play-Store production distribution you'd need a TAK.gov user-build-portal certificate.
-
----
-
-## Roadmap
-
-1. Real SDR ingestion (HackRF One + Python sidecar via local socket → bypass propagation calc when band is confirmed-detected)
-2. ML-based emitter classification (modulation type → finer per-band detection probabilities)
-3. CoT federation of risk score (each operator's plugin emits a custom CoT every 5 s with current risk; team-lead WinTAK shows the formation color-coded)
-4. Offline SPLAT! propagation (bundle SPLAT! binaries + SRTM tiles for one geographic area, demo works fully offline)
-5. DELTA / Kropyva ports
-
----
-
-## Citations & OSINT sources
-
-See `docs/osint_sources.md` for the full list. Primary sources:
-
-- **Sprotyv G7** — *Russian EW Systems Analytic Insight Report*, November 2023. (Public release.)
-- **CSIS** — Russian electronic-warfare capability briefs (open).
-- **RUSI** — Russia electronic-warfare assessments (open).
-- **Conflict Armament Research** — Orlan-10 teardown analysis (2022, public).
-- **Open Telegram milblogger reporting** (2024) — for Pole-21 and Shipovnik-Aero usage patterns.
-
----
+No classified data. No FOUO/CUI. No ITAR. No proprietary vendor info beyond public datasheets.
 
 ## License
 
-Apache 2.0. See [LICENSE](LICENSE).
-
----
-
-## Acknowledgements
-
-Built on the **public** ATAK-CIV SDK 4.6.0.5 from `deptofdefense/AndroidTacticalAssaultKit-CIV`, which made this 48-hour build possible without TAK.gov gating. SOOTHSAYER (Cloud-RF) was the reference for how RF/propagation plugins integrate with the ATAK MapView.
+Apache 2.0 — see [`LICENSE`](LICENSE). EAR99 export classification.
