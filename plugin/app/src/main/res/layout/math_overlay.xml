@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Math overlay shown when the user taps the dial in the top HUD. Lays out
+     the actual link-budget numbers behind the current composite risk score —
+     proves the math is real, not Lorem-ipsum risk theater. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F2000000"
+    android:elevation="20dp"
+    android:padding="20dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Live link-budget calculation"
+        android:textColor="#FFFFFFFF"
+        android:textStyle="bold"
+        android:textSize="18sp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Current numbers from the propagation engine, top adversary, and active radio profile."
+        android:textColor="#FFAAAAAA"
+        android:textSize="11sp"
+        android:layout_marginBottom="16dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <TextView
+            android:id="@+id/math_overlay_body"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#FFCCCCCC"
+            android:textSize="13sp"
+            android:typeface="monospace"
+            android:lineSpacingExtra="4dp" />
+
+    </ScrollView>
+
+    <Button
+        android:id="@+id/math_overlay_close"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Close"
+        android:textColor="#FFFFFFFF"
+        android:padding="14dp"
+        android:layout_marginTop="14dp"
+        android:background="#FF2A2A2A" />
+
+</LinearLayout>

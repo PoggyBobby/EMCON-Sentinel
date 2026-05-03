@@ -10,14 +10,19 @@ import com.atakmap.coremap.maps.coords.GeoPoint;
 import com.emconsentinel.cot.CotEmitter;
 import com.emconsentinel.cot.CotEvent;
 import com.emconsentinel.data.AdversarySystem;
+import com.emconsentinel.data.RadioBand;
+import com.emconsentinel.data.RadioProfile;
 import com.emconsentinel.prop.LinkBudget;
 import com.emconsentinel.prop.PathLossEngine;
 import com.emconsentinel.prop.PropagationResult;
+import com.emconsentinel.risk.HopCoach;
+import com.emconsentinel.risk.HopRecommendation;
 import com.emconsentinel.risk.PlacedAdversary;
 import com.emconsentinel.risk.RiskScorer;
 import com.emconsentinel.risk.RiskUpdate;
 import com.emconsentinel.util.Geo;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,11 +43,16 @@ public final class RiskTickLoop {
     private final PluginState state;
     private final RiskScorer scorer;
     private final PathLossEngine prop;
-    private final RiskDialView dial;
+    private final TopHudStrip hud;
     private final ThreatCircleRenderer circles;
-    private final DisplaceBanner banner;
+    private final DisplaceModalController displaceModal;
+    private com.emconsentinel.ui.DisplacementWaypointRenderer waypoints;
+    public void setWaypointRenderer(com.emconsentinel.ui.DisplacementWaypointRenderer w) { this.waypoints = w; }
     private final SoundCues sounds;
     private final CotEmitter cotEmitter;            // null if CoT init failed (no network)
+    private final HopCoach hopCoach;                // pure-Java; never null
+    private HopCoachChip hopChip;                   // optional, set via setter
+    public void setHopChip(HopCoachChip chip) { this.hopChip = chip; }
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final AtomicBoolean running = new AtomicBoolean(false);
     private long lastCotEmitMs = 0;
@@ -58,18 +68,19 @@ public final class RiskTickLoop {
     };
 
     public RiskTickLoop(MapView mapView, PluginState state, RiskScorer scorer,
-                        PathLossEngine prop, RiskDialView dial,
-                        ThreatCircleRenderer circles, DisplaceBanner banner,
+                        PathLossEngine prop, TopHudStrip hud,
+                        ThreatCircleRenderer circles, DisplaceModalController displaceModal,
                         SoundCues sounds, CotEmitter cotEmitter) {
         this.mapView = mapView;
         this.state = state;
         this.scorer = scorer;
         this.prop = prop;
-        this.dial = dial;
+        this.hud = hud;
         this.circles = circles;
-        this.banner = banner;
+        this.displaceModal = displaceModal;
         this.sounds = sounds;
         this.cotEmitter = cotEmitter;
+        this.hopCoach = new HopCoach(prop);
         scorer.dwellClock().setTimeScale(state.isDemoMode10x() ? 10.0 : 1.0);
     }
 
@@ -89,23 +100,86 @@ public final class RiskTickLoop {
 
         GeoPoint op = currentOperatorPoint();
         if (op == null) {
-            dial.setRisk(0, 0, "No GPS fix yet", "", state.isDemoMode10x());
+            hud.setRisk(0, 0, "No GPS fix yet", "", state.isDemoMode10x());
             return;
         }
 
         List<PlacedAdversary> placed = state.placedAdversariesSnapshot();
         long now = System.currentTimeMillis();
-        RiskUpdate update = scorer.update(now, op.getLatitude(), op.getLongitude(),
-                state.isKeying(), state.activeProfile(), placed);
-        state.setLastRisk(update);
 
-        // Per-asset lock probs for circle renderer
+        // Three modes:
+        //   ACTIVE  — operator is keying their drone radio. Risk = phone bands
+        //             + drone bands. Highest signature.
+        //   PASSIVE — not keying, but phone radios always emit. Risk = phone bands
+        //             only. Lower but non-zero — your phone alone CAN get you DF'd.
+        //   IDLE    — no phone bands either (airplane mode). Risk = 0.
+        //
+        // The dial used to read 0% whenever isKeying was false, which was
+        // misleading: the phone is itself a high-EIRP emitter at the operator
+        // location and never stops. That's exactly the risk operators ignore
+        // until it kills them. Always-on now.
+        boolean droneKeying = state.isKeying();
+        List<RadioBand> phoneBands = state.phoneEmittersSnapshot();
+        boolean phoneEmitting = !phoneBands.isEmpty();
+
+        // Apply per-band disable toggles. effectiveProfile() returns null if
+        // every band of the active radio is disabled.
+        RadioProfile droneEffective = state.effectiveProfile(state.activeProfile());
+
+        RadioProfile effectiveProfile;
+        boolean effectiveKeying;
+        if (droneKeying && droneEffective != null) {
+            // ACTIVE: drone radio (band-filtered) + phone bands
+            effectiveProfile = mergePhoneBands(droneEffective, phoneBands);
+            effectiveKeying = true;
+        } else if (phoneEmitting) {
+            // PASSIVE: phone bands only, but force isKeying=true so RiskScorer
+            // computes (the underlying check just gates whether emissions are
+            // contributing — phones always do)
+            effectiveProfile = new RadioProfile("phone-only-passive",
+                    "Phone radios (passive)", phoneBands);
+            effectiveKeying = true;
+        } else {
+            // IDLE: nothing emitting
+            effectiveProfile = state.activeProfile();
+            effectiveKeying = false;
+        }
+
+        RiskUpdate update = scorer.update(now, op.getLatitude(), op.getLongitude(),
+                effectiveKeying, effectiveProfile, placed);
+        state.setLastRisk(update);
+        // Track which mode produced the displayed score so the HUD can label it.
+        state.setRiskMode(droneKeying ? PluginState.RiskMode.ACTIVE
+                : phoneEmitting ? PluginState.RiskMode.PASSIVE
+                : PluginState.RiskMode.IDLE);
+
+        // Hop coaching — only meaningful in ACTIVE mode (operator can't toggle
+        // phone radios). Compute against the AS-CONFIGURED profile, not the
+        // post-disable effectiveProfile, so the recommendation reflects the
+        // radio's full band list — the dominant-band identity is stable across
+        // disable/enable toggles.
+        HopRecommendation hop = null;
+        if (droneKeying && state.activeProfile() != null) {
+            hop = hopCoach.compute(state.activeProfile(),
+                    state.disabledBandIndices(state.activeProfile()),
+                    op.getLatitude(), op.getLongitude(),
+                    placed, update.dwellSeconds);
+        }
+        state.setLastHopRecommendation(hop);
+        if (hopChip != null) hopChip.apply(hop);
+
+        // Per-asset lock probs for circle renderer. Use effectiveProfile (which
+        // includes phone bands) so circles fill in PASSIVE mode too — otherwise
+        // the dial reads 30% but the circles look empty, which makes the visual
+        // story inconsistent.
         Map<String, Double> perAssetLockProb = new HashMap<>();
-        if (state.isKeying() && state.activeProfile() != null) {
+        if (effectiveKeying && effectiveProfile != null) {
             double t = update.dwellSeconds;
             for (PlacedAdversary p : placed) {
+                if (p.hidden) continue;
+                if (p.system == null) continue;
                 AdversarySystem adv = p.system;
-                LinkBudget.Result detect = LinkBudget.assetDetection(adv, state.activeProfile(),
+                LinkBudget.Result detect = LinkBudget.assetDetection(adv, effectiveProfile,
                         op.getLatitude(), op.getLongitude(), p.lat, p.lon, prop);
                 double tau = Math.max(1, adv.timeToFixSeconds);
                 double pLock = detect.prob * (1.0 - Math.exp(-t / tau));
@@ -123,11 +197,28 @@ public final class RiskTickLoop {
                 ? "FREE-SPACE FALLBACK — TERRAIN NOT MODELED"
                 : "";
 
-        dial.setRisk(update.displayedScore, update.dwellSeconds, topThreatLine, propModeLine,
+        // Mode-aware context line — operator must immediately see whether the
+        // dial number reflects active drone keying or just passive phone leakage.
+        String modePrefix;
+        switch (state.riskMode()) {
+            case ACTIVE:  modePrefix = "ACTIVE"; break;
+            case PASSIVE: modePrefix = "PASSIVE — phone only"; break;
+            default:      modePrefix = "IDLE"; break;
+        }
+        hud.setContext(modePrefix + (state.activeProfile() != null
+                ? "  ·  " + state.activeProfile().displayName : ""));
+
+        hud.setRisk(update.displayedScore, update.dwellSeconds, topThreatLine, propModeLine,
                 state.isDemoMode10x());
 
-        if (banner != null) {
-            banner.apply(update.displayedScore, op.getLatitude(), op.getLongitude());
+        if (displaceModal != null) {
+            displaceModal.apply(update.displayedScore, op.getLatitude(), op.getLongitude());
+        }
+        if (waypoints != null) {
+            waypoints.apply(update.displayedScore, op.getLatitude(), op.getLongitude(),
+                    new com.emconsentinel.ui.DisplacementWaypointRenderer.RiskTickLoopState(
+                            state.activeProfile()),
+                    placed);
         }
         if (sounds != null) {
             sounds.onScore(update.displayedScore);
@@ -148,7 +239,26 @@ public final class RiskTickLoop {
         }
     }
 
+    /** Combine the operator's chosen radio bands with the phone-emitter bands. */
+    private static RadioProfile mergePhoneBands(RadioProfile base, List<RadioBand> phoneBands) {
+        if (base == null) {
+            return phoneBands == null || phoneBands.isEmpty() ? null
+                    : new RadioProfile("merged-phone-only", "Phone radios", phoneBands);
+        }
+        if (phoneBands == null || phoneBands.isEmpty()) return base;
+        List<RadioBand> merged = new ArrayList<>(base.bands.size() + phoneBands.size());
+        merged.addAll(base.bands);
+        merged.addAll(phoneBands);
+        return new RadioProfile(base.id + "+phone", base.displayName + " + phone radios", merged);
+    }
+
     private GeoPoint currentOperatorPoint() {
+        // Demo override beats real GPS — when a scenario is loaded the operator
+        // is supposed to be standing at the scenario's named position, not at
+        // wherever the demo physically takes place.
+        if (state.hasDemoOperatorOverride()) {
+            return new GeoPoint(state.demoOperatorLat(), state.demoOperatorLon());
+        }
         Marker self = mapView.getSelfMarker();
         if (self != null && self.getPoint() != null) {
             GeoPoint p = self.getPoint();

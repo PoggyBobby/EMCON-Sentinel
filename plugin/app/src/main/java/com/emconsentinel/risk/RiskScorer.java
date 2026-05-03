@@ -57,6 +57,9 @@ public final class RiskScorer {
         PropagationResult.Mode mode = PropagationResult.Mode.FREE_SPACE;
 
         for (PlacedAdversary p : placed) {
+            // Hidden adversaries (e.g. ARGUS-undetected threats) contribute nothing
+            // to risk until a friendly scanner reveals them. Lets us model fog of war.
+            if (p.hidden) continue;
             AdversarySystem adv = p.system;
             double rangeKm = Geo.distanceKm(opLat, opLon, p.lat, p.lon);
             double maxRangeKm = adv.platform == AdversarySystem.Platform.AIRBORNE
