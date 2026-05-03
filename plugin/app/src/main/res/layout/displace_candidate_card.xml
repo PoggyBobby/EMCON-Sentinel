@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="14dp"
+    android:layout_marginBottom="8dp"
+    android:background="#FF1F1F1F"
+    android:clickable="true"
+    android:focusable="true">
+
+    <TextView
+        android:id="@+id/displace_card_dir"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFFFF"
+        android:textStyle="bold"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/displace_card_detail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#FFAAAAAA"
+        android:textSize="12sp"
+        android:layout_marginTop="3dp" />
+
+</LinearLayout>
