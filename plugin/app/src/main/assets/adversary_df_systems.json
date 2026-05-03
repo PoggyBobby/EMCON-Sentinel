@@ -118,6 +118,84 @@
       "airborne_range_km": 40,
       "time_to_fix_seconds": 80,
       "source": "Sprotyv G7 (Nov 2023); open Russian Ministry of Defence trade-show photos and brochures"
+    },
+    {
+      "id": "prc-dwl-002",
+      "display_name": "DWL-002 Passive Surveillance (PRC)",
+      "platform": "ground_vehicle",
+      "frequency_min_mhz": 100,
+      "frequency_max_mhz": 3000,
+      "antenna_gain_dbi": 16.0,
+      "sensitivity_dbm": -120,
+      "ground_range_km": 60,
+      "airborne_range_km": 400,
+      "time_to_fix_seconds": 90,
+      "source": "CSIS China Military Watch (2022-2024); Janes Land Warfare; CETC (NRIET) promotional brochures. Multi-static passive coherent location, claimed range ~400 km against airborne emitters."
+    },
+    {
+      "id": "prc-chl-906",
+      "display_name": "CHL-906 Tactical DF (PRC)",
+      "platform": "ground_vehicle",
+      "frequency_min_mhz": 100,
+      "frequency_max_mhz": 3000,
+      "antenna_gain_dbi": 10.0,
+      "sensitivity_dbm": -107,
+      "ground_range_km": 25,
+      "airborne_range_km": 50,
+      "time_to_fix_seconds": 75,
+      "source": "Janes Land Warfare Platforms; PLA Strategic Support Force open-source order-of-battle assessments. Vehicle-mounted tactical DF analogous in role to Russian Borisoglebsk-class."
+    },
+    {
+      "id": "iri-comint-vehicle",
+      "display_name": "Iranian COMINT vehicle (templated)",
+      "platform": "ground_vehicle",
+      "frequency_min_mhz": 30,
+      "frequency_max_mhz": 3000,
+      "antenna_gain_dbi": 9.0,
+      "sensitivity_dbm": -105,
+      "ground_range_km": 20,
+      "airborne_range_km": 40,
+      "time_to_fix_seconds": 100,
+      "source": "Open-source assessments of IRGC EW deployments (RUSI 2023; defenseupdate.com 2024). Specific system identifications limited; templated to a peer-vehicular DF profile."
+    },
+    {
+      "id": "generic-peer-vehicular-df",
+      "display_name": "Generic peer vehicular wide-band DF",
+      "platform": "ground_vehicle",
+      "frequency_min_mhz": 30,
+      "frequency_max_mhz": 6000,
+      "antenna_gain_dbi": 11.0,
+      "sensitivity_dbm": -108,
+      "ground_range_km": 25,
+      "airborne_range_km": 50,
+      "time_to_fix_seconds": 90,
+      "source": "Templated peer-class system. Use when you suspect a Borisoglebsk-2-class threat in the AO but lack a specific identification. Conservative middle-of-the-pack values."
+    },
+    {
+      "id": "generic-man-portable-hf-df",
+      "display_name": "Generic man-portable HF/VHF DF",
+      "platform": "ground_vehicle",
+      "frequency_min_mhz": 1.5,
+      "frequency_max_mhz": 500,
+      "antenna_gain_dbi": 6.0,
+      "sensitivity_dbm": -100,
+      "ground_range_km": 15,
+      "airborne_range_km": 30,
+      "time_to_fix_seconds": 150,
+      "source": "Templated. Pattern: a 4-person SIGINT team with a backpack-portable DF receiver, suitcase-class antenna. Modest sensitivity, slow time-to-fix, but easy to position in unconventional locations (rooftops, forward observation posts)."
+    },
+    {
+      "id": "generic-airborne-sigint-pod",
+      "display_name": "Generic airborne SIGINT pod",
+      "platform": "airborne",
+      "frequency_min_mhz": 30,
+      "frequency_max_mhz": 18000,
+      "antenna_gain_dbi": 12.0,
+      "sensitivity_dbm": -118,
+      "ground_range_km": 10,
+      "airborne_range_km": 200,
+      "time_to_fix_seconds": 30,
+      "source": "Templated. Pattern: a SIGINT pod on an ISR platform (Russian Tu-214R, PRC Y-9JB, Iranian Saegheh-derived UAS). Long airborne range due to LoS at altitude; very fast time-to-fix because the pod's geolocation algorithms work on a single airborne pass."
     }
   ]
 }

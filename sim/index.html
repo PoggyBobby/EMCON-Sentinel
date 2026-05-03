@@ -113,7 +113,11 @@
       <select id="adv-picker"></select>
       <button id="add-asset" style="margin-bottom: 6px;">Add asset (click on map)</button>
       <button class="row ghost" id="clear-assets">Clear</button>
-      <button class="row ghost" id="load-demo">Load demo scenario</button>
+      <select id="demo-picker" style="margin-bottom: 6px;">
+        <option value="rubicon-pokrovsk">Demo: Rubicon — Pokrovsk axis (Russia/Ukraine)</option>
+        <option value="indopacom-island">Demo: INDOPACOM — contested Pacific island (PRC)</option>
+      </select>
+      <button class="row ghost" id="load-demo" style="width:100%;">Load selected demo scenario</button>
       <ul id="placed-list" class="placed-list"></ul>
     </div>
 
@@ -198,6 +202,30 @@ const ADVERSARY_SYSTEMS = [
     frequency_min_mhz:100, frequency_max_mhz:8000, antenna_gain_dbi:11.0, sensitivity_dbm:-110,
     ground_range_km:20, airborne_range_km:40, time_to_fix_seconds:80,
     source:"Sprotyv G7 (Nov 2023); open Russian Ministry of Defence trade-show photos and brochures" },
+  { id:"prc-dwl-002", display_name:"DWL-002 Passive Surveillance (PRC)", platform:"ground_vehicle",
+    frequency_min_mhz:100, frequency_max_mhz:3000, antenna_gain_dbi:16.0, sensitivity_dbm:-120,
+    ground_range_km:60, airborne_range_km:400, time_to_fix_seconds:90,
+    source:"CSIS China Military Watch (2022-2024); Janes Land Warfare; CETC (NRIET) brochures. Multi-static passive coherent location, ~400 km airborne reach." },
+  { id:"prc-chl-906", display_name:"CHL-906 Tactical DF (PRC)", platform:"ground_vehicle",
+    frequency_min_mhz:100, frequency_max_mhz:3000, antenna_gain_dbi:10.0, sensitivity_dbm:-107,
+    ground_range_km:25, airborne_range_km:50, time_to_fix_seconds:75,
+    source:"Janes Land Warfare Platforms; PLA SSF open-source order-of-battle assessments." },
+  { id:"iri-comint-vehicle", display_name:"Iranian COMINT vehicle (templated)", platform:"ground_vehicle",
+    frequency_min_mhz:30, frequency_max_mhz:3000, antenna_gain_dbi:9.0, sensitivity_dbm:-105,
+    ground_range_km:20, airborne_range_km:40, time_to_fix_seconds:100,
+    source:"RUSI 2023 IRGC EW assessments; specific identifications limited; templated peer-vehicular profile." },
+  { id:"generic-peer-vehicular-df", display_name:"Generic peer vehicular wide-band DF", platform:"ground_vehicle",
+    frequency_min_mhz:30, frequency_max_mhz:6000, antenna_gain_dbi:11.0, sensitivity_dbm:-108,
+    ground_range_km:25, airborne_range_km:50, time_to_fix_seconds:90,
+    source:"Templated peer-class system. Use when you suspect a Borisoglebsk-2-class threat in the AO but lack identification." },
+  { id:"generic-man-portable-hf-df", display_name:"Generic man-portable HF/VHF DF", platform:"ground_vehicle",
+    frequency_min_mhz:1.5, frequency_max_mhz:500, antenna_gain_dbi:6.0, sensitivity_dbm:-100,
+    ground_range_km:15, airborne_range_km:30, time_to_fix_seconds:150,
+    source:"Templated. Pattern: 4-person SIGINT team with backpack DF receiver. Modest sensitivity, slow time-to-fix; easy to position in unconventional locations." },
+  { id:"generic-airborne-sigint-pod", display_name:"Generic airborne SIGINT pod", platform:"airborne",
+    frequency_min_mhz:30, frequency_max_mhz:18000, antenna_gain_dbi:12.0, sensitivity_dbm:-118,
+    ground_range_km:10, airborne_range_km:200, time_to_fix_seconds:30,
+    source:"Templated. Pattern: SIGINT pod on an ISR platform (Tu-214R, Y-9JB, Saegheh-derived UAS). Long airborne LoS reach; fast time-to-fix on a single airborne pass." },
 ];
 
 const RADIO_PROFILES = [
@@ -228,15 +256,28 @@ const RADIO_PROFILES = [
     { freq_mhz:2400, eirp_dbm:30, duty_cycle:0.8, purpose:"mesh_data" } ] },
 ];
 
-const DEMO_SCENARIO = {
-  name: "Rubicon — Pokrovsk axis",
-  operator: { lat: 48.2814, lon: 37.1762, label: "Operator FOB" },
-  adversaries: [
-    { system_id: "r-330zh-zhitel",         lat: 48.2814, lon: 37.2841, note: "Zhitel ~8 km E" },
-    { system_id: "rb-301b-borisoglebsk-2", lat: 48.1735, lon: 37.2935, note: "Borisoglebsk-2 ~14 km SE" },
-    { system_id: "leer-3",                 lat: 48.3621, lon: 37.2487, note: "Leer-3 (Orlan-10) ~12 km NE airborne" },
-  ],
+const DEMO_SCENARIOS = {
+  "rubicon-pokrovsk": {
+    name: "Rubicon — Pokrovsk axis",
+    operator: { lat: 48.2814, lon: 37.1762, label: "Operator FOB" },
+    adversaries: [
+      { system_id: "r-330zh-zhitel",         lat: 48.2814, lon: 37.2841, note: "Zhitel ~8 km E" },
+      { system_id: "rb-301b-borisoglebsk-2", lat: 48.1735, lon: 37.2935, note: "Borisoglebsk-2 ~14 km SE" },
+      { system_id: "leer-3",                 lat: 48.3621, lon: 37.2487, note: "Leer-3 (Orlan-10) ~12 km NE airborne" },
+    ],
+  },
+  "indopacom-island": {
+    name: "INDOPACOM — contested Pacific island",
+    operator: { lat: 14.5800, lon: 121.0500, label: "Operator FOB" },
+    adversaries: [
+      { system_id: "prc-dwl-002",                 lat: 14.6750, lon: 121.0500, note: "DWL-002 passive surveillance ~10 km N" },
+      { system_id: "prc-chl-906",                 lat: 14.5650, lon: 121.1450, note: "CHL-906 tactical DF ~10 km E" },
+      { system_id: "generic-airborne-sigint-pod", lat: 14.6500, lon: 121.0150, note: "Airborne SIGINT pod ~10 km NW" },
+    ],
+  },
 };
+// Backward-compat alias for existing code paths
+const DEMO_SCENARIO = DEMO_SCENARIOS["rubicon-pokrovsk"];
 
 //// MATH — port of plugin/app/src/main/java/com/emconsentinel/{prop,risk,util}/
 
@@ -456,9 +497,9 @@ function clearAllAdversaries() {
   refreshPlacedList();
 }
 
-function loadDemoScenario() {
+function loadDemoScenario(key) {
   clearAllAdversaries();
-  const sc = DEMO_SCENARIO;
+  const sc = DEMO_SCENARIOS[key] || DEMO_SCENARIO;
   state.operatorLatLng = [sc.operator.lat, sc.operator.lon];
   opMarker.setLatLng(state.operatorLatLng);
   map.setView(state.operatorLatLng, 11);
@@ -515,7 +556,10 @@ document.getElementById('add-asset').addEventListener('click', () => {
 });
 
 document.getElementById('clear-assets').addEventListener('click', clearAllAdversaries);
-document.getElementById('load-demo').addEventListener('click', loadDemoScenario);
+document.getElementById('load-demo').addEventListener('click', () => {
+  const key = document.getElementById('demo-picker').value;
+  loadDemoScenario(key);
+});
 
 const keyingBtn = document.getElementById('keying-btn');
 const keyingStatus = document.getElementById('keying-status');

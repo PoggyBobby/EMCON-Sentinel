@@ -14,11 +14,13 @@ Open [`sim/index.html`](sim/index.html) in any browser. Single self-contained fi
 
 ## The 30-second pitch
 
-Russian counter-drone units (notably Rubicon) hunt Ukrainian drone operators by direction-finding their RF emissions — controller, video downlink, GCS Wi-Fi, mesh radios. Sensor-to-shooter cycles are under 2 minutes. Operators have no tool on their tablet that tells them when their accumulated keying-time has made them findable.
+**The category — operator-side EMCON awareness — is empty.** Every adjacent commercial product (DroneShield, Anduril Pulsar, CRFS RFeye, CloudRF SOOTHSAYER) either looks at the **enemy's** emissions or models **friendly** coverage. None closes the loop on the **friendly operator's own behavioral risk**: how locatable am *I* right now, given how long I've been keying, on what band, with what adversary DF in range?
 
-Every adjacent product (DroneShield, Anduril Pulsar, CRFS RFeye, CloudRF SOOTHSAYER) either looks at the **enemy's** emissions or models **friendly** coverage — none closes the loop on the **friendly operator's own behavioral risk**.
+EMCON Sentinel does. It's a fuel gauge for getting killed: when stay-time on a contested band crosses the locate-and-strike threshold, the dial turns red and the plugin proactively suggests displacement positions in tactical reach.
 
-EMCON Sentinel does. It's the plugin equivalent of a fuel gauge for emissions: it knows when you've been keyed too long, in one place, on a band the adversary covers, and it tells you to move.
+The most acute current proof point is **Russian counter-drone DF in Ukraine** — Rubicon teams running sensor-to-shooter cycles under two minutes. The same problem applies wherever a small-UAS operator keys a radio in contested EW: PRC SIGINT against US/allied forces in INDOPACOM, IRGC EW in CENTCOM, peer-templated threats in CONUS Red Team exercises, NATO partners on the Eastern Flank. Same math, swap the adversary library.
+
+**Audience:** Army drone operators (159th, 160th SOAR, Ranger Regt, conventional MFE), MARSOC, NSW, AFSOC, partner-nation forces using ATAK-CIV, civilian critical-infrastructure inspection teams in unfriendly airspace.
 
 ---
 

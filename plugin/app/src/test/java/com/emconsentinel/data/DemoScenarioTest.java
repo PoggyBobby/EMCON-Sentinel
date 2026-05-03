@@ -23,4 +23,20 @@ public class DemoScenarioTest {
         // first entry must reference a system id in our adversary library
         assertEquals("r-330zh-zhitel", s.adversaries.get(0).systemId);
     }
+
+    @Test public void loadsIndoPacomScenario() throws Exception {
+        DemoScenario s = DemoScenario.load(
+                new FileInputStream("src/main/assets/demo_scenarios/indopacom_island.json"));
+        assertTrue("name mentions INDOPACOM", s.name.toUpperCase().contains("INDOPACOM"));
+        assertEquals("expected 3 adversaries in scenario", 3, s.adversaries.size());
+
+        // Operator coords in the W. Pacific band (broad bounds — anywhere from
+        // Korean peninsula to Australia is acceptable for the demo)
+        assertTrue("operator lat in -45..50", s.operatorLat > -45 && s.operatorLat < 50);
+        assertTrue("operator lon in 95..180", s.operatorLon > 95 && s.operatorLon < 180);
+
+        // First entry must reference a PRC system id
+        assertTrue("first adversary should be a PRC system",
+                s.adversaries.get(0).systemId.startsWith("prc-"));
+    }
 }

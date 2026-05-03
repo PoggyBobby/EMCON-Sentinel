@@ -14,6 +14,29 @@ Every numeric parameter in `plugin/app/src/main/assets/adversary_df_systems.json
 | **Torn-MDM** | 1.5–3000 MHz | −108 dBm | 9 dBi | 30 km ground / 60 km air | 70 s | Sprotyv G7 (Nov 2023); manpack tactical SIGINT/DF, widely deployed in Donbas 2022–2024 |
 | **RB-636 Svet-KU** | 100–8000 MHz | −110 dBm | 11 dBi | 20 km ground / 40 km air | 80 s | Sprotyv G7 (Nov 2023); open Russian MoD trade-show photos and brochures |
 
+### People's Republic of China (INDOPACOM)
+
+| System | Frequency range | Sensitivity | Antenna gain | Range | τ | Sources |
+|---|---|---|---|---|---|---|
+| **DWL-002 Passive Surveillance** | 100–3000 MHz | −120 dBm | 16 dBi | 60 km ground / 400 km air | 90 s | CSIS China Military Watch (2022–2024); Janes Land Warfare; CETC (NRIET) brochures. Multi-static passive coherent location, claimed ~400 km against airborne emitters. |
+| **CHL-906 Tactical DF** | 100–3000 MHz | −107 dBm | 10 dBi | 25 km ground / 50 km air | 75 s | Janes Land Warfare Platforms; PLA Strategic Support Force open-source order-of-battle assessments. Vehicle-mounted tactical DF analogous to Borisoglebsk. |
+
+### Islamic Republic of Iran (CENTCOM)
+
+| System | Frequency range | Sensitivity | Antenna gain | Range | τ | Sources |
+|---|---|---|---|---|---|---|
+| **Iranian COMINT vehicle** (templated) | 30–3000 MHz | −105 dBm | 9 dBi | 20 km ground / 40 km air | 100 s | RUSI 2023 IRGC EW assessments; specific identifications limited; templated to peer-vehicular profile. |
+
+### Generic peer threat templates
+
+For when you suspect a class of threat in the AO but lack a specific identification. Conservative middle-of-the-pack values. Use these to model what you don't know.
+
+| System | Frequency range | Sensitivity | Antenna gain | Range | τ | Use case |
+|---|---|---|---|---|---|---|
+| **Generic peer vehicular wide-band DF** | 30–6000 MHz | −108 dBm | 11 dBi | 25 km ground / 50 km air | 90 s | Templated Borisoglebsk-class vehicular SIGINT/DF. |
+| **Generic man-portable HF/VHF DF** | 1.5–500 MHz | −100 dBm | 6 dBi | 15 km ground / 30 km air | 150 s | 4-person SIGINT team with backpack DF receiver. Modest sensitivity, slow time-to-fix; can position in unconventional locations (rooftops, observation posts). |
+| **Generic airborne SIGINT pod** | 30–18000 MHz | −118 dBm | 12 dBi | 10 km ground / 200 km air | 30 s | Pod on an ISR platform (Tu-214R, Y-9JB, Saegheh-derived UAS). Long airborne LoS reach; fast time-to-fix on a single airborne pass. |
+
 All values are **conservative first-order estimates** suitable for an EMCON awareness aid. They are deliberately not ground-truth performance specifications. If you have access to better-cited public numbers (a specific Sprotyv update, a CSIS report number, a RUSI dataset version), open a PR and replace the entry.
 
 ## Primary references
