@@ -1,6 +1,62 @@
 # EMCON Sentinel — architecture
 
-Single-page logical view. For the polished PNG that goes into the submission slide, take this and re-draw in Excalidraw or similar.
+Three views: a polished mermaid diagram (renders on GitHub), an ASCII text view (works in any viewer), and a per-tick data-flow trace.
+
+## System view (mermaid)
+
+```mermaid
+flowchart LR
+    subgraph TABLET["Operator's Android tablet (ATAK 4.6 CIV)"]
+        direction TB
+        subgraph PLUGIN["EMCON Sentinel — com.emconsentinel.plugin"]
+            direction TB
+            subgraph DATA["Data layer"]
+                AdvJson["adversary_df_systems.json<br/>9 OSINT-cited DF systems"]
+                ProfJson["radio_profiles.json<br/>9 operator radio presets"]
+                DemoJson["demo_scenarios/*.json<br/>Pokrovsk axis preset"]
+            end
+            subgraph PROP["Propagation engine"]
+                CloudRF["CloudRfEngine<br/>(terrain-aware HTTP)"]
+                FSPL["FreeSpaceEngine<br/>(Friis, no terrain)"]
+                LB["LinkBudget<br/>sigmoid(margin, k=0.2)<br/>per-band detection"]
+                CloudRF -->|fail-3x circuit breaker| FSPL
+                FSPL --> LB
+                CloudRF --> LB
+            end
+            subgraph RISK["Risk scorer"]
+                Dwell["DwellClock<br/>50 m radius gate<br/>10x demo scaler"]
+                Scorer["RiskScorer<br/>P_lock_i = P_detect × (1 − e^(−t/τ))<br/>composite = 1 − Π(1 − P_lock_i)"]
+                Smooth["MovingAverage<br/>5-second window"]
+                Disp["DisplacementSearch<br/>8 bearings × 3 ranges"]
+                Dwell --> Scorer
+                Scorer --> Smooth
+            end
+            subgraph UI["UI layer"]
+                DropDown["DropDownReceiver<br/>setup pane"]
+                Dial["RiskDialView<br/>(Canvas overlay)"]
+                Circles["ThreatCircleRenderer<br/>(per-asset, alpha=P_lock×0.6)"]
+                Banner["DisplaceBanner<br/>(top of map, ≥0.5)"]
+                Sound["SoundCues<br/>(amber/red beeps)"]
+            end
+            DATA --> RISK
+            DATA --> PROP
+            PROP --> RISK
+            RISK --> UI
+            Disp --> Banner
+        end
+        ATAK["ATAK MapView + Route engine + GPS"]
+        UI <--> ATAK
+    end
+
+    CloudRFAPI["api.cloudrf.com/path/<br/>(terrain SRTM-backed)"]
+    CloudRF -.HTTPS POST.- CloudRFAPI
+
+    style PLUGIN fill:#1a1a2e,stroke:#ffce3a,color:#fff
+    style ATAK fill:#15161b,stroke:#888,color:#fff
+    style CloudRFAPI fill:#15161b,stroke:#666,color:#bbb
+```
+
+## Single-page ASCII (works in any viewer)
 
 ```
                        ┌────────────────────────────────────────┐
