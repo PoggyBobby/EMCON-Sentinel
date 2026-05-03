@@ -6,6 +6,14 @@
 
 ---
 
+## 90-second demo
+
+[![EMCON Sentinel — 90-second demo](https://img.youtube.com/vi/LKeLwimOees/maxresdefault.jpg)](https://youtu.be/LKeLwimOees)
+
+▶ **[Watch on YouTube](https://youtu.be/LKeLwimOees)** — problem brief → three-tier sensing → live link-budget math → MOVE NOW with directional displacement → what's different.
+
+---
+
 ## The problem
 
 Drone operators in Ukraine are dying because Russian SIGINT/DF assets locate them via the RF emissions of their drone control links and FPV video. Once triangulated, fires (artillery, Lancet, Shahed, hunter-killer FPV) follow in 3–30 minutes.
