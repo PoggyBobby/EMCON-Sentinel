@@ -91,6 +91,29 @@
             android:background="#444"
             android:layout_marginBottom="12dp" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="C2 telemetry link"
+            android:textStyle="bold"
+            android:layout_marginTop="4dp" />
+
+        <TextView
+            android:id="@+id/c2_status_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="C2 bridge offline. Run tools/c2_bridge.py to observe real RF."
+            android:textSize="11sp"
+            android:layout_marginBottom="6dp" />
+
+        <CheckBox
+            android:id="@+id/c2_use_for_keying"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Use C2 link for keying detection"
+            android:textSize="12sp"
+            android:layout_marginBottom="12dp" />
+
         <Button
             android:id="@+id/keying_button"
             android:layout_width="match_parent"

@@ -15,6 +15,8 @@ import com.atakmap.coremap.log.Log;
 
 import com.atakmap.coremap.maps.coords.GeoPoint;
 
+import com.emconsentinel.c2.C2Bridge;
+import com.emconsentinel.cot.CotEmitter;
 import com.emconsentinel.data.AdversarySystem;
 import com.emconsentinel.data.AssetLibrary;
 import com.emconsentinel.data.DemoScenario;
@@ -48,6 +50,8 @@ public class EmconSentinelMapComponent extends DropDownMapComponent {
     private RiskDialView dial;
     private DisplaceBanner banner;
     private SoundCues sounds;
+    private CotEmitter cotEmitter;
+    private C2Bridge c2Bridge;
 
     @Override
     public void onCreate(final Context context, Intent intent, final MapView view) {
@@ -87,7 +91,23 @@ public class EmconSentinelMapComponent extends DropDownMapComponent {
         banner = new DisplaceBanner(view, context, state, search);
         sounds = new SoundCues();
 
-        tickLoop = new RiskTickLoop(view, state, scorer, prop, dial, threatCircles, banner, sounds);
+        // Phase 7 — CoT federation. Best effort; if multicast init fails (no network)
+        // we just don't broadcast — the rest of the plugin keeps working.
+        try {
+            cotEmitter = new CotEmitter();
+            Log.i(TAG, "CoT federation enabled — emitting on " + CotEmitter.DEFAULT_GROUP + ":" + CotEmitter.DEFAULT_PORT);
+        } catch (Exception e) {
+            Log.w(TAG, "CoT emitter unavailable: " + e.getMessage());
+            cotEmitter = null;
+        }
+
+        // C2 telemetry-link bridge (real, no-sim). Listens for the Python sidecar
+        // at tools/c2_bridge.py — when running, ATAK gets real RF activity and
+        // can replace the manual keying toggle with observed transmissions.
+        c2Bridge = new C2Bridge(state);
+        c2Bridge.start();
+
+        tickLoop = new RiskTickLoop(view, state, scorer, prop, dial, threatCircles, banner, sounds, cotEmitter);
         tickLoop.start();
 
         Runnable onClear = () -> {
@@ -163,6 +183,8 @@ public class EmconSentinelMapComponent extends DropDownMapComponent {
         if (threatCircles != null) threatCircles.clear();
         if (banner != null) banner.detach();
         if (sounds != null) sounds.release();
+        if (cotEmitter != null) cotEmitter.close();
+        if (c2Bridge != null) c2Bridge.stop();
         super.onDestroyImpl(context, view);
     }
 }

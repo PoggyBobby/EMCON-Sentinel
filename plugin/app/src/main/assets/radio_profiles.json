@@ -71,6 +71,13 @@
         {"freq_mhz": 900, "eirp_dbm": 30, "duty_cycle": 0.8, "purpose": "mesh_data"},
         {"freq_mhz": 2400, "eirp_dbm": 30, "duty_cycle": 0.8, "purpose": "mesh_data"}
       ]
+    },
+    {
+      "id": "micoair-lr900f",
+      "display_name": "MicoAir LR900-F (915 MHz LoRa, Pixhawk/Ardupilot/PX4)",
+      "bands": [
+        {"freq_mhz": 915, "eirp_dbm": 27, "duty_cycle": 0.5, "purpose": "telemetry_mavlink"}
+      ]
     }
   ]
 }
