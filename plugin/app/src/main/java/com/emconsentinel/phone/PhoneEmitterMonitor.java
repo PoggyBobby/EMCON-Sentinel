@@ -6,6 +6,7 @@ import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.telephony.CellSignalStrength;
+import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
 
@@ -108,21 +109,32 @@ public final class PhoneEmitterMonitor {
         // Phones beacon to the cell tower continuously when on. TX power is
         // adaptive (closed-loop) but worst case ~23 dBm class-3. Frequency is
         // band-dependent; pick representative center per network type.
+        //
+        // Gate on ServiceState — a SIM being inserted and unlocked
+        // (SIM_STATE_READY) tells us nothing about whether the radio is on.
+        // ServiceState.STATE_POWER_OFF is the OS's authoritative answer for
+        // "the cellular radio is hardware-off" (airplane mode, manual radio
+        // toggle, modem reset — anything that actually stops emissions). We
+        // mirror the principle WiFi/BT already use: ask the radio's own state,
+        // not a proxy.
         try {
-            if (tel != null && tel.getSimState() == TelephonyManager.SIM_STATE_READY) {
-                int netType = tel.getNetworkType();
-                double centerMhz = cellularCenterFreqMhz(netType);
-                // Cellular UL duty: low when idle, higher when in active call/data.
-                // Conservative: 0.10 (idle paging + occasional UL).
-                double duty = 0.10;
-                // Class 3 max is 23 dBm; many phones cap at 23 dBm UL.
-                out.add(new RadioBand(centerMhz, /*eirpDbm*/ 23.0, duty,
-                        "phone-cellular-" + cellularLabel(netType)));
+            if (tel != null) {
+                ServiceState ss = tel.getServiceState();
+                boolean radioOn = ss != null && ss.getState() != ServiceState.STATE_POWER_OFF;
+                if (radioOn) {
+                    int netType = tel.getNetworkType();
+                    double centerMhz = cellularCenterFreqMhz(netType);
+                    // UL duty: low when idle, higher in active call/data. 0.10 = conservative.
+                    double duty = 0.10;
+                    out.add(new RadioBand(centerMhz, /*eirpDbm*/ 23.0, duty,
+                            "phone-cellular-" + cellularLabel(netType)));
+                }
             }
         } catch (SecurityException se) {
-            // No READ_PHONE_STATE — fall back to assuming cellular is present at
-            // mid-band (1900 MHz PCS). We can't get exact band without the perm.
-            out.add(new RadioBand(1900, 23.0, 0.10, "phone-cellular-unknown"));
+            // READ_PHONE_STATE not granted. Without it we can't read the radio
+            // state at all — refuse to fabricate a band. Operator sees IDLE
+            // for cellular until the permission is granted, which is the honest
+            // answer (we can't observe so we don't claim).
         } catch (Exception e) {
             Log.w(TAG, "cellular sample failed: " + e);
         }
