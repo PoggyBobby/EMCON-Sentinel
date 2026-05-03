@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pre-mission survivability check. Operator picks a planned dwell time, tool
+     computes composite kill chance + ranks alternative radios by predicted
+     improvement. Highest-leverage life-saving feature: changes the equation
+     from "react to red" to "plan to survive". -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F2000000"
+    android:elevation="20dp"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pre-mission survivability"
+        android:textColor="#FFFFFFFF"
+        android:textStyle="bold"
+        android:textSize="16sp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Run BEFORE you leave the FOB. Pick what radio to bring based on the predicted kill chance for your planned dwell."
+        android:textColor="#FFAAAAAA"
+        android:textSize="11sp"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Planned keying dwell at one position"
+        android:textColor="#FFCCCCCC"
+        android:textSize="12sp"
+        android:layout_marginTop="6dp" />
+
+    <SeekBar
+        android:id="@+id/surv_dwell_seek"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="14"
+        android:progress="4" />
+
+    <TextView
+        android:id="@+id/surv_dwell_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="5 min"
+        android:textColor="#FFFFFFFF"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#FF333333"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Predicted survival (current loadout)"
+        android:textColor="#FFAAAAAA"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/surv_current_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="—"
+        android:textColor="#FFFFFFFF"
+        android:textStyle="bold"
+        android:textSize="22sp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#FF333333"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Top-3 radio recommendations"
+        android:textColor="#FFCCCCCC"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="6dp">
+
+        <LinearLayout
+            android:id="@+id/surv_recommendations"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+    </ScrollView>
+
+    <Button
+        android:id="@+id/surv_close_btn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Close"
+        android:textColor="#FFFFFFFF"
+        android:padding="12dp"
+        android:layout_marginTop="10dp"
+        android:background="#FF2A2A2A" />
+
+</LinearLayout>

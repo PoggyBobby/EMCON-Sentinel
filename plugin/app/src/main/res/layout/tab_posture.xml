@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Posture tab — operator-realistic flow. Top: AOR posture cards (one-tap to
+     drop a curated worst-case threat envelope). Bottom: collapsible "Advanced"
+     disclosure with the legacy demo-scenario buttons + place-by-hand. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="AOR posture"
+            android:textColor="#FFFFFFFF"
+            android:textStyle="bold"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Pick the worst-case threat envelope for your area. Updates whenever you move."
+            android:textColor="#FFAAAAAA"
+            android:textSize="11sp"
+            android:layout_marginBottom="10dp" />
+
+        <LinearLayout
+            android:id="@+id/posture_card_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#FF333333"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="10dp" />
+
+        <TextView
+            android:id="@+id/posture_advanced_disclosure"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="▾ I have specific intel"
+            android:textColor="#FF66AAFF"
+            android:textSize="12sp"
+            android:padding="6dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <LinearLayout
+            android:id="@+id/posture_advanced_panel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:background="#FF111111"
+            android:padding="10dp"
+            android:layout_marginTop="4dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Named historical scenarios"
+                android:textColor="#FFCCCCCC"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="14dp">
+
+                <Button
+                    android:id="@+id/posture_btn_indo_scenario"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Pacific island"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="10sp"
+                    android:padding="10dp"
+                    android:background="#FF1F4F8F" />
+
+                <Button
+                    android:id="@+id/posture_btn_eu_scenario"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Pokrovsk"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="10sp"
+                    android:padding="10dp"
+                    android:background="#FF8F1F1F"
+                    android:layout_marginStart="6dp"
+                    android:layout_marginEnd="6dp" />
+
+                <Button
+                    android:id="@+id/posture_btn_cc_scenario"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Hormuz"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="10sp"
+                    android:padding="10dp"
+                    android:background="#FF8F6F1F" />
+
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/posture_btn_argus_demo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="▶ CENTCOM-Drone (ARGUS scan)"
+                android:textColor="#FFFFFFFF"
+                android:textSize="11sp"
+                android:padding="12dp"
+                android:layout_marginBottom="10dp"
+                android:background="#FF1F6F8F" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Place a specific known threat"
+                android:textColor="#FFCCCCCC"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <Spinner
+                android:id="@+id/posture_system_spinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:spinnerMode="dropdown"
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="6dp"
+                android:background="#FF1F1F1F" />
+
+            <Button
+                android:id="@+id/posture_add_btn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="+ Tap map to place"
+                android:textColor="#FFFFFFFF"
+                android:textSize="11sp"
+                android:padding="10dp"
+                android:background="#FF2A2A2A" />
+
+            <Button
+                android:id="@+id/posture_clear_btn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Clear all"
+                android:textColor="#FFCCCCCC"
+                android:textSize="11sp"
+                android:padding="8dp"
+                android:layout_marginTop="6dp"
+                android:background="#FF1F1F1F" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>
