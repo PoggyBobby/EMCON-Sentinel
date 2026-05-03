@@ -5,9 +5,12 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.view.View;
+import android.os.Handler;
+import android.os.Looper;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -18,11 +21,14 @@ import com.atakmap.android.dropdown.DropDownReceiver;
 import com.atakmap.android.maps.MapView;
 import com.atakmap.coremap.log.Log;
 
+import com.emconsentinel.c2.C2Status;
 import com.emconsentinel.data.AdversarySystem;
 import com.emconsentinel.data.AssetLibrary;
 import com.emconsentinel.data.RadioProfile;
 import com.emconsentinel.plugin.R;
 import com.emconsentinel.ui.PluginState;
+
+import java.util.Locale;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +47,15 @@ public class EmconSentinelDropDownReceiver extends DropDownReceiver implements O
     private Button keyingButton;
     private TextView keyingStatusLabel;
     private TextView placedAssetsLabel;
+    private TextView c2StatusLabel;
+    private CheckBox c2UseForKeying;
+    private final Handler ui = new Handler(Looper.getMainLooper());
+    private final Runnable c2RefreshTick = new Runnable() {
+        @Override public void run() {
+            refreshC2Status();
+            ui.postDelayed(this, 1000);
+        }
+    };
 
     public EmconSentinelDropDownReceiver(final MapView mapView,
                                           final Context context,
@@ -121,7 +136,18 @@ public class EmconSentinelDropDownReceiver extends DropDownReceiver implements O
             }
         });
 
-        // 6. Keying toggle
+        // 6. C2 telemetry link status + use-for-keying toggle
+        c2StatusLabel = paneView.findViewById(R.id.c2_status_label);
+        c2UseForKeying = paneView.findViewById(R.id.c2_use_for_keying);
+        c2UseForKeying.setChecked(state.useC2ForKeying());
+        c2UseForKeying.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            state.setUseC2ForKeying(isChecked);
+            applyKeyingButtonState();
+        });
+        refreshC2Status();
+        ui.postDelayed(c2RefreshTick, 1000);
+
+        // 7. Keying toggle
         keyingButton = paneView.findViewById(R.id.keying_button);
         keyingStatusLabel = paneView.findViewById(R.id.keying_status_label);
         applyKeyingButtonState();
@@ -132,11 +158,32 @@ public class EmconSentinelDropDownReceiver extends DropDownReceiver implements O
             }
         });
 
-        // 7. About
+        // 8. About
         Button aboutBtn = paneView.findViewById(R.id.about_button);
         aboutBtn.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { showAboutDialog(); }
         });
+    }
+
+    private void refreshC2Status() {
+        if (c2StatusLabel == null) return;
+        C2Status s = state.c2Status();
+        if (s == null || !s.connected) {
+            c2StatusLabel.setText("C2 bridge offline. Run tools/c2_bridge.py to observe real RF.");
+            c2StatusLabel.setTextColor(0xFF888888);
+            return;
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format(Locale.US, "C2 LINK UP — %s @ %.1f MHz",
+                s.radioModel.isEmpty() ? "unknown radio" : s.radioModel, s.centerFreqMhz));
+        if (!Double.isNaN(s.rssiDbm)) {
+            sb.append(String.format(Locale.US, "  RSSI %.0f dBm", s.rssiDbm));
+        }
+        sb.append(String.format(Locale.US, "  TX %d B/s  RX %d B/s",
+                s.txBytesPerSec, s.rxBytesPerSec));
+        if (s.isTransmittingNow) sb.append("  (TX NOW)");
+        c2StatusLabel.setText(sb.toString());
+        c2StatusLabel.setTextColor(s.isTransmittingNow ? 0xFFFF6464 : 0xFF6FC36F);
     }
 
     public void refreshPlacedLabel() {
@@ -148,13 +195,23 @@ public class EmconSentinelDropDownReceiver extends DropDownReceiver implements O
 
     private void applyKeyingButtonState() {
         if (keyingButton == null) return;
+        boolean usingC2 = state.useC2ForKeying() && state.c2Status() != null && state.c2Status().connected;
         boolean keying = state.isKeying();
-        keyingButton.setText(keying ? "STOP KEYING" : "START KEYING");
-        keyingButton.setBackgroundColor(keying ? 0xFFCC1F1F : 0xFF2ECC40);
-        keyingButton.setTextColor(0xFFFFFFFF);
-        keyingStatusLabel.setText(keying
-                ? "Keying — risk dial active. Stop to reset dwell."
-                : "Idle. Press START KEYING to begin emitting.");
+        if (usingC2) {
+            keyingButton.setEnabled(false);
+            keyingButton.setText("KEYING DRIVEN BY C2 LINK");
+            keyingButton.setBackgroundColor(keying ? 0xFFCC1F1F : 0xFF454545);
+            keyingButton.setTextColor(0xFFFFFFFF);
+            keyingStatusLabel.setText("Manual button overridden — using observed RF activity from C2 bridge.");
+        } else {
+            keyingButton.setEnabled(true);
+            keyingButton.setText(keying ? "STOP KEYING" : "START KEYING");
+            keyingButton.setBackgroundColor(keying ? 0xFFCC1F1F : 0xFF2ECC40);
+            keyingButton.setTextColor(0xFFFFFFFF);
+            keyingStatusLabel.setText(keying
+                    ? "Keying — risk dial active. Stop to reset dwell."
+                    : "Idle. Press START KEYING to begin emitting.");
+        }
     }
 
     private void showAboutDialog() {

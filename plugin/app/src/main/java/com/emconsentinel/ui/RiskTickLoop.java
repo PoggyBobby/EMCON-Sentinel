@@ -7,6 +7,8 @@ import com.atakmap.android.maps.MapView;
 import com.atakmap.android.maps.Marker;
 import com.atakmap.coremap.maps.coords.GeoPoint;
 
+import com.emconsentinel.cot.CotEmitter;
+import com.emconsentinel.cot.CotEvent;
 import com.emconsentinel.data.AdversarySystem;
 import com.emconsentinel.prop.LinkBudget;
 import com.emconsentinel.prop.PathLossEngine;
@@ -40,8 +42,11 @@ public final class RiskTickLoop {
     private final ThreatCircleRenderer circles;
     private final DisplaceBanner banner;
     private final SoundCues sounds;
+    private final CotEmitter cotEmitter;            // null if CoT init failed (no network)
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private long lastCotEmitMs = 0;
+    private static final long COT_PERIOD_MS = 5000;
 
     private final Runnable tick = new Runnable() {
         @Override public void run() {
@@ -55,7 +60,7 @@ public final class RiskTickLoop {
     public RiskTickLoop(MapView mapView, PluginState state, RiskScorer scorer,
                         PathLossEngine prop, RiskDialView dial,
                         ThreatCircleRenderer circles, DisplaceBanner banner,
-                        SoundCues sounds) {
+                        SoundCues sounds, CotEmitter cotEmitter) {
         this.mapView = mapView;
         this.state = state;
         this.scorer = scorer;
@@ -64,6 +69,7 @@ public final class RiskTickLoop {
         this.circles = circles;
         this.banner = banner;
         this.sounds = sounds;
+        this.cotEmitter = cotEmitter;
         scorer.dwellClock().setTimeScale(state.isDemoMode10x() ? 10.0 : 1.0);
     }
 
@@ -125,6 +131,20 @@ public final class RiskTickLoop {
         }
         if (sounds != null) {
             sounds.onScore(update.displayedScore);
+        }
+        // Phase 7 — federate composite risk over CoT every 5 s. Other ATAK clients
+        // on the same SA mesh (multicast 239.2.3.1:6969) see this operator as a
+        // friendly ground unit AND can color-code by the <emcon score> child.
+        if (cotEmitter != null && (now - lastCotEmitMs) >= COT_PERIOD_MS) {
+            String topId = update.topThreatId;
+            CotEvent ev = new CotEvent(
+                    state.operatorUid(), state.operatorCallsign(),
+                    now, /*staleSeconds=*/30,
+                    op.getLatitude(), op.getLongitude(),
+                    update.displayedScore, update.dwellSeconds,
+                    topId, update.topThreatRangeKm, update.topThreatBearingDeg);
+            cotEmitter.emit(ev);
+            lastCotEmitMs = now;
         }
     }
 
