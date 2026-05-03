@@ -466,6 +466,23 @@ public class EmconSentinelMapComponent extends DropDownMapComponent {
         // but OpenStreetMap's tile usage policy blocks ATAK's User-Agent —
         // tiles return HTTP 403 "Access blocked" images that look like a broken
         // map. Better to drop one good source than two with one broken.
+        //
+        // Reap any leftover blocked sources from prior plugin versions. ATAK
+        // scans the mapsources dir on every startup; an unremoved osm_streetmap.xml
+        // from an older install will keep blocking the user even after we
+        // dropped it from this build's bundle.
+        String[] blockedLeftovers = {
+                "mobac/mapsources/osm_streetmap.xml",
+                "imagery/mobile/mapsources/osm_streetmap.xml",
+                "imagecache/OpenStreetMap.sqlite",
+        };
+        for (String rel : blockedLeftovers) {
+            File f = FileSystemUtils.getItem(rel);
+            if (f.exists() && f.delete()) {
+                Log.i(TAG, "removed stale blocked tile artifact: " + rel);
+            }
+        }
+
         String[] sources = { "esri_world_imagery.xml" };
         boolean newAny = false;
         for (String s : sources) {
