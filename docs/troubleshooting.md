@@ -1,0 +1,180 @@
+# Troubleshooting development checks
+
+This guide covers the repository's **generic development checks** only: the
+offline prerequisite checker, the SDK-independent JVM test runner, CI, and the
+offline support report. None of them builds an APK, validates an ATAK host or
+device, or establishes accuracy, safety, privacy, or release readiness. See
+[release readiness](release-readiness.md) for the gates that remain open.
+
+Commands below run from the repository root with Python 3.9+ (standard library
+only). Use synthetic data throughout.
+
+## Quick triage
+
+| Symptom | Likely cause | Go to |
+| --- | --- | --- |
+| `blocked: jdk_17` from the checker | No JDK 17 found via `JAVA_HOME` or `PATH` | [Missing or wrong JDK](#missing-or-wrong-jdk) |
+| `JAVA_HOME or --java-home must point to JDK 17` | JVM runner started without a JDK | [Missing or wrong JDK](#missing-or-wrong-jdk) |
+| `JDK 17 required for java` / `for javac` | A JRE, or a different Java major version | [Missing or wrong JDK](#missing-or-wrong-jdk) |
+| `checksum mismatch: <name>.jar` | Corrupt/partial cache, proxy rewrite, or tampering | [Checksum errors](#checksum-errors) |
+| Gradle reports a distribution verification failure | Wrapper download does not match the pinned SHA-256 | [Checksum errors](#checksum-errors) |
+| CI is green but there is no APK | Expected: CI does not build one | [CI versus APK](#ci-versus-apk) |
+| `blocked: configuration_format` / `atak_sdk` / `signing_configuration` | Local build configuration not supplied | [Build prerequisites](#build-prerequisites) |
+| Someone asks for "logs" | Share the sanitized support report first | [Support report](#support-report) |
+
+## Missing or wrong JDK
+
+The checked-in toolchain targets **JDK 17**. Both `java` and `javac` are required;
+a JRE alone is not enough.
+
+1. Check what is selected:
+
+   ```sh
+   echo "$JAVA_HOME"
+   "$JAVA_HOME/bin/java" -version
+   "$JAVA_HOME/bin/javac" -version
+   ```
+
+2. Install a maintained JDK 17 distribution (for example Eclipse Temurin 17),
+   verifying the download against the publisher's checksum. Do not modify system
+   Java to work around this; point `JAVA_HOME` at the JDK instead:
+
+   ```sh
+   export JAVA_HOME=/absolute/path/to/jdk-17
+   python3 scripts/release_doctor.py      # expect "ok: jdk_17"
+   python3 scripts/test_java.py --list    # needs no Java; validates inventory
+   python3 scripts/test_java.py           # compiles and runs the JVM subset
+   ```
+
+3. Still blocked? The checker probes `JAVA_HOME/bin/java`, otherwise `java` on
+   `PATH`. Gradle daemon settings such as `org.gradle.java.home` are **not**
+   consulted. The JVM runner strips `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`,
+   `JDK_JAVA_OPTIONS`, and `CLASSPATH` before running Java.
+
+A failed JVM run still writes a report with `status: failed`; that is never
+success. Details: [JVM verification](../verification/README.md).
+
+## Checksum errors
+
+### `checksum mismatch: <name>.jar` (JVM runner)
+
+The runner verifies every JUnit/Hamcrest/Gson JAR, **including cached copies**,
+against the checksums pinned in `verification/dependencies.json` before use.
+
+1. Do **not** edit the pinned hashes to make the error go away.
+2. Delete only the named file from the dependency cache (default
+   `~/.hermes/cache/scratch/emcon-java-tests/dependencies`, or `$JAVA_TEST_CACHE`)
+   and run `python3 scripts/test_java.py` again to re-download it from Maven Central.
+3. If the mismatch repeats, a proxy, mirror, or captive portal may be altering the
+   download. Compare the file with the publisher's `.sha1` (the artifact URL with
+   `.sha1` appended) from a trusted network. A persistent mismatch should be
+   reported as a possible integrity problem, not worked around.
+
+### Gradle wrapper distribution verification failure
+
+`plugin/gradle/wrapper/gradle-wrapper.properties` pins
+`distributionSha256Sum` for Gradle 7.6.4. A verification failure means the
+downloaded distribution does not match. Remove the partial download from your
+Gradle user home and retry from a trusted network. **Never delete or replace the
+checksum line** to bypass the error.
+
+## CI versus APK
+
+| | GitHub Actions `Tests` workflow | APK release |
+| --- | --- | --- |
+| Builds an APK | **No** | Requires the licensed ATAK SDK and approved signing |
+| Runs | Python tool tests, JVM-infrastructure tests, and existing JUnit tests on a pure-Java source subset | Android/Gradle build of the plugin |
+| Validates ATAK loading, UI, sensors, permissions, devices | **No** | Only by testing the exact signed artifact on each claimed host/device |
+| Artifact uploaded | `jvm-subset-test-report` (JSON summary and logs) | None is published by this repository |
+
+A green CI run means those specific checks passed for that commit. It is not
+evidence that an APK builds, installs, loads, or behaves correctly. Read the
+uploaded current-run `summary.json` for counts; an absent report means execution
+was not verified. Historical local counts recorded in
+[verification evidence](verification-evidence.md) describe a past run, not the
+current commit.
+
+## Build prerequisites
+
+`python3 scripts/release_doctor.py` reports structural prerequisites only. Blocked
+`configuration_format`, `android_sdk`, `atak_sdk`, or `signing_configuration`
+checks are expected on a checkout without the licensed SDK and local signing
+setup. Follow the [plugin build guide](../plugin/README.md) and the
+[checker documentation](../scripts/README.md). Never paste `local.properties`,
+keystores, or passwords into an issue or chat; the checker deliberately prints
+no configuration values.
+
+## Support report
+
+`scripts/support_report.py` writes a minimal, sanitized JSON summary you can
+review and choose to share. It runs offline, executes no application code, never
+contacts the network, and never uploads anything.
+
+```sh
+# Optional inputs; each is reported as "missing" when absent.
+python3 scripts/test_java.py                                  # verification/build/jvm/summary.json
+python3 scripts/release_doctor.py --json > dist/release-doctor.json
+# Collect (POSIX systems: macOS/Linux).
+python3 scripts/support_report.py
+```
+
+Output: `dist/support-report.json` (ignored by Git, file mode `0600`). The
+collector opens **only** these allowlisted files, without following symlinks,
+and refuses non-regular or oversized (>256 KiB) inputs:
+
+| Input | What is kept |
+| --- | --- |
+| `verification/build/jvm/summary.json` | Final status, total tests run, number of classes |
+| `dist/release-doctor.json` | Overall status and `ok`/`blocked` for the five known check IDs |
+| `plugin/gradle/wrapper/gradle-wrapper.properties` | Gradle version token from the official distribution URL only |
+| `verification/dependencies.json` | `group:artifact` → version for Maven Central URLs only |
+| `verification/java-tests.json` | Counts of included sources, included tests, and excluded tests |
+
+Everything else — messages, file and class names, commands, paths, errors,
+timestamps, hashes — is dropped. Malformed, contradictory, or unexpected input
+(unknown statuses or IDs, duplicate keys, non-integer or out-of-range counts,
+"passed" with zero or mismatched tests, credentialed or non-official URLs) is
+reported as `"status": "invalid"` rather than passed through. The Gradle
+wrapper file is read with a deliberately strict subset of the Java properties
+format (lines end only at CR, LF, or CRLF; plain `key=value` entries starting
+in column 1). An indented, escaped, backslash-continued, `:`- or
+space-separated, duplicated, or commented `distributionUrl`, or any control
+character, makes `tool_metadata` `invalid` because Gradle could resolve a
+different URL than the one shown. A symlinked `dist/` directory is refused and
+nothing is written. If writing fails part-way (for example, a full disk), the
+temporary file is removed and any previous `dist/support-report.json` is left
+unchanged.
+
+### Reading the report
+
+| Status | Meaning |
+| --- | --- |
+| `missing` | Input not present; the check was not run or its output not saved |
+| `invalid` | Input present but rejected; regenerate it with the official tool |
+| `passed` / `failed` / `running` | JVM runner's final state (`running` means an interrupted or in-progress run) |
+| `ok` / `blocked` | Prerequisite checker state |
+
+The report reflects the **latest locally saved** outputs, which may be older than
+your checkout; rerun the checks before collecting. It is not CI, APK, device,
+accuracy, or release evidence, as its own `scope` field states.
+
+### What to share and what not to share
+
+**Share (after reading it yourself):** `dist/support-report.json`, the commit
+ID you tested, your OS and Python version, and the exact command plus the
+one-line error message you saw.
+
+**Do not share:**
+
+- `plugin/local.properties`, keystores (`*.jks`, `*.keystore`, `*.p12`), `.env`
+  files, passwords, tokens, or repository credentials.
+- Raw `verification/build/jvm/summary.json` or run logs: they contain absolute
+  local paths and executed commands. Share them only if a maintainer asks and
+  after you have redacted them.
+- Device logs, screenshots, map views, coordinates, or any real location,
+  identity, or operational data.
+- ATAK SDK files or other licensed components.
+
+The collector is a minimization aid, not a guarantee: review the file before
+sending it, and use a private reporting route for anything security-sensitive
+as described in [SECURITY.md](../SECURITY.md#reporting).

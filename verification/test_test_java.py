@@ -64,16 +64,230 @@ class ArtifactTests(unittest.TestCase):
             source = Path(folder) / "source.jar"
             destination = Path(folder) / "cache/artifact.jar"
             source.write_bytes(b"verified fixture bytes")
-            expected = hashlib.sha1(source.read_bytes()).hexdigest()
-            module.download_verified(source.as_uri(), destination, expected)
+            expected = hashlib.sha256(source.read_bytes()).hexdigest()
+            url = "https://repo.maven.apache.org/maven2/fixture/artifact.jar"
+            from unittest.mock import patch
+            import io
+            with patch.object(module.urllib.request, "urlopen",
+                              return_value=io.BytesIO(source.read_bytes())):
+                module.download_verified(url, destination, expected)
             self.assertEqual(destination.read_bytes(), source.read_bytes())
             destination.write_bytes(b"corrupt cache")
             with self.assertRaisesRegex(ValueError, "checksum mismatch"):
-                module.download_verified(source.as_uri(), destination, expected)
+                module.download_verified(url, destination, expected)
             bad = Path(folder) / "bad.jar"
-            with self.assertRaisesRegex(ValueError, "checksum mismatch"):
-                module.download_verified(source.as_uri(), bad, "0" * 40)
+            with patch.object(module.urllib.request, "urlopen",
+                              return_value=io.BytesIO(source.read_bytes())):
+                with self.assertRaisesRegex(ValueError, "checksum mismatch"):
+                    module.download_verified(url, bad, "0" * 64)
             self.assertFalse(bad.exists())
+
+
+class ArtifactValidationTests(unittest.TestCase):
+    def test_download_is_bounded_and_cache_install_is_atomic(self):
+        import hashlib
+        import io
+        from unittest.mock import patch
+        module = runner()
+        url = "https://repo.maven.apache.org/maven2/fixture/artifact.jar"
+        data = b"verified fixture bytes"
+        expected = hashlib.sha256(data).hexdigest()
+        with tempfile.TemporaryDirectory(dir=SCRATCH) as folder:
+            destination = Path(folder) / "artifact.jar"
+
+            class ObservedStream(io.BytesIO):
+                def read(self, size=-1):
+                    self.assert_bounded(size)
+                    return super().read(size)
+
+                def assert_bounded(self, size):
+                    if size < 0:
+                        raise AssertionError("download must use bounded reads")
+                    if destination.exists():
+                        raise AssertionError("unverified destination became visible")
+
+            with patch.object(module.urllib.request, "urlopen", return_value=ObservedStream(data)):
+                module.download_verified(url, destination, expected)
+            self.assertEqual(destination.read_bytes(), data)
+            destination.unlink()
+            with patch.object(module, "MAX_ARTIFACT_BYTES", 8, create=True), patch.object(
+                    module.urllib.request, "urlopen", return_value=io.BytesIO(data)):
+                with self.assertRaisesRegex(ValueError, "size limit"):
+                    module.download_verified(url, destination, expected)
+            self.assertEqual(list(Path(folder).iterdir()), [])
+
+    def test_redirect_away_from_reviewed_url_and_symlinked_cache_fail_closed(self):
+        import hashlib
+        import io
+        from unittest.mock import patch
+        module = runner()
+        url = "https://repo.maven.apache.org/maven2/fixture/artifact.jar"
+        data = b"verified fixture bytes"
+        expected = hashlib.sha256(data).hexdigest()
+
+        class Redirected(io.BytesIO):
+            def geturl(self):
+                return "http://mirror.example/artifact.jar"
+
+        with tempfile.TemporaryDirectory(dir=SCRATCH) as folder:
+            destination = Path(folder) / "artifact.jar"
+            with patch.object(module.urllib.request, "urlopen", return_value=Redirected(data)):
+                with self.assertRaisesRegex(ValueError, "URL"):
+                    module.download_verified(url, destination, expected)
+            self.assertEqual(list(Path(folder).iterdir()), [])
+            target = Path(folder) / "elsewhere.jar"
+            target.write_bytes(data)
+            destination.symlink_to(target)
+            with patch.object(module.urllib.request, "urlopen") as fetch:
+                with self.assertRaisesRegex(ValueError, "symlink"):
+                    module.download_verified(url, destination, expected)
+                fetch.assert_not_called()
+
+    def test_download_timeout_is_bounded_and_leaves_no_partial_cache(self):
+        import hashlib
+        import io
+        import socket
+        from unittest.mock import patch
+        module = runner()
+        url = "https://repo.maven.apache.org/maven2/fixture/artifact.jar"
+        expected = hashlib.sha256(b"complete").hexdigest()
+
+        class Stalls(io.BytesIO):
+            def read(self, *args):
+                if self.tell():
+                    raise socket.timeout("read timed out")
+                return super().read(4)
+
+        with tempfile.TemporaryDirectory(dir=SCRATCH) as folder:
+            destination = Path(folder) / "artifact.jar"
+            stale = Path(folder) / ".download-interrupted"
+            stale.write_bytes(b"complete")  # stale partial from a prior run is never trusted
+            with patch.object(module.urllib.request, "urlopen",
+                              return_value=Stalls(b"complete")) as fetch:
+                with self.assertRaises(socket.timeout):
+                    module.download_verified(url, destination, expected)
+            timeout = fetch.call_args.kwargs.get("timeout")
+            self.assertIsNotNone(timeout, "network reads require an explicit timeout")
+            self.assertLessEqual(timeout, 60)
+            self.assertEqual(sorted(p.name for p in Path(folder).iterdir()), [stale.name])
+
+    def test_unreviewed_urls_and_malformed_sha256_fail_before_io(self):
+        from unittest.mock import patch
+        module = runner()
+        good = "https://repo.maven.apache.org/maven2/fixture/artifact.jar"
+        urls = ["http://repo.maven.apache.org/maven2/a.jar", "file:///a.jar",
+                "https://evil.example/a.jar", "https://user@repo.maven.apache.org/maven2/a.jar",
+                good + "#fragment", good + "?query=1",
+                "https://repo.maven.apache.org:444/maven2/a.jar",
+                "https://repo.maven.apache.org/maven2/../a.jar",
+                "https://repo.maven.apache.org/maven2/%2e%2e/a.jar",
+                "https://repo.maven.apache.org/maven2/a%2fb.jar"]
+        cases = [(url, "a" * 64) for url in urls]
+        cases += [(good, digest) for digest in ("a" * 40, "g" * 64, "a" * 65, "", None, 123)]
+        with tempfile.TemporaryDirectory(dir=SCRATCH) as folder:
+            destination = Path(folder) / "unused/cache.jar"
+            for url, digest in cases:
+                with self.subTest(url=url, digest=digest), patch.object(
+                        module.urllib.request, "urlopen", return_value=__import__("io").BytesIO(b"fixture")) as fetch:
+                    with self.assertRaisesRegex(ValueError, "URL|SHA-256"):
+                        module.download_verified(url, destination, digest)
+                    fetch.assert_not_called()
+                    self.assertFalse(destination.parent.exists())
+
+
+class ManifestSchemaTests(unittest.TestCase):
+    GOOD = {"url": "https://repo.maven.apache.org/maven2/fixture/a/1/a-1.jar",
+            "sha256": "a" * 64, "sha1": "b" * 40}
+
+    def write_dependencies(self, root, value):
+        (root / "verification").mkdir(exist_ok=True)
+        (root / "verification/dependencies.json").write_text(json.dumps(value))
+
+    def test_repository_lock_pins_sha256_for_every_reviewed_dependency(self):
+        dependencies = runner().load_dependencies(ROOT)
+        self.assertEqual([d["url"].rsplit("/", 1)[1] for d in dependencies],
+                         ["junit-4.13.2.jar", "hamcrest-core-1.3.jar", "gson-2.10.1.jar"])
+        for dependency in dependencies:
+            self.assertRegex(dependency["sha256"], r"^[0-9a-f]{64}$")
+            self.assertRegex(dependency["sha1"], r"^[0-9a-f]{40}$")
+
+    def test_malformed_dependency_lock_fails_closed(self):
+        other = dict(self.GOOD, url=self.GOOD["url"].replace("fixture/a", "other/a"))
+        cases = {"not a list": {"url": self.GOOD["url"]}, "empty": [], "scalar item": ["x"],
+                 "missing sha256": [{"url": self.GOOD["url"], "sha1": "b" * 40}],
+                 "unknown key": [dict(self.GOOD, mirror="https://example.com")],
+                 "bad sha1 provenance": [dict(self.GOOD, sha1="z" * 40)],
+                 "uppercase digest": [dict(self.GOOD, sha256="A" * 64)],
+                 "duplicate cache name": [self.GOOD, other],
+                 "plain HTTP": [dict(self.GOOD, url=self.GOOD["url"].replace("https", "http"))]}
+        with tempfile.TemporaryDirectory(dir=SCRATCH) as folder:
+            root = Path(folder)
+            self.write_dependencies(root, [self.GOOD])
+            self.assertEqual(runner().load_dependencies(root), [self.GOOD])
+            for name, value in cases.items():
+                with self.subTest(name):
+                    self.write_dependencies(root, value)
+                    with self.assertRaisesRegex(ValueError, "dependenc|SHA|URL"):
+                        runner().load_dependencies(root)
+            (root / "verification/dependencies.json").write_text("{not json")
+            with self.assertRaisesRegex(ValueError, "dependenc"):
+                runner().load_dependencies(root)
+
+    def make_repo(self, folder):
+        root = Path(folder)
+        (root / "verification").mkdir(parents=True)
+        tests = root / "plugin/app/src/test/java"
+        main = root / "plugin/app/src/main/java"
+        tests.mkdir(parents=True)
+        main.mkdir(parents=True)
+        (tests / "OkTest.java").write_text("class OkTest {}")
+        (main / "Ok.java").write_text("class Ok {}")
+        return root
+
+    def write_manifest(self, root, **changes):
+        manifest = {"included_tests": ["OkTest.java"], "excluded_tests": {},
+                    "included_sources": ["Ok.java"]}
+        manifest.update(changes)
+        (root / "verification/java-tests.json").write_text(json.dumps(manifest))
+
+    def test_manifest_paths_cannot_escape_source_roots(self):
+        cases = {"parent test": {"included_tests": ["../OkTest.java"]},
+                 "absolute test": {"included_tests": ["/tmp/OkTest.java"]},
+                 "dot segment": {"included_tests": ["./OkTest.java"]},
+                 "backslash": {"included_tests": ["a\\OkTest.java"]},
+                 "non-java": {"included_tests": ["OkTest.txt"]},
+                 "non-string": {"included_tests": [7]},
+                 "parent source": {"included_sources": ["../../main/java/Ok.java"]},
+                 "missing source": {"included_sources": ["Missing.java"]},
+                 "duplicate source": {"included_sources": ["Ok.java", "Ok.java"]},
+                 "excluded list": {"excluded_tests": []},
+                 "sources null": {"included_sources": None},
+                 "unknown key": {"extra": True}}
+        with tempfile.TemporaryDirectory(dir=SCRATCH) as folder:
+            root = self.make_repo(folder)
+            self.write_manifest(root)
+            self.assertEqual(runner().inventory(root), (["OkTest.java"], {}))
+            for name, changes in cases.items():
+                with self.subTest(name):
+                    self.write_manifest(root, **changes)
+                    with self.assertRaisesRegex(ValueError, "manifest|unaccounted"):
+                        runner().inventory(root)
+
+    def test_symlinked_test_or_source_outside_roots_is_rejected(self):
+        with tempfile.TemporaryDirectory(dir=SCRATCH) as folder, \
+                tempfile.TemporaryDirectory(dir=SCRATCH) as outside:
+            (Path(outside) / "Escape.java").write_text("class Escape {}")
+            for kind in ("test", "main"):
+                with self.subTest(kind):
+                    root = self.make_repo(Path(folder) / kind)
+                    link = root / "plugin/app/src" / kind / "java/Escape.java"
+                    link.symlink_to(Path(outside) / "Escape.java")
+                    if kind == "test":
+                        self.write_manifest(root, included_tests=["OkTest.java", "Escape.java"])
+                    else:
+                        self.write_manifest(root, included_sources=["Ok.java", "Escape.java"])
+                    with self.assertRaisesRegex(ValueError, "symlink"):
+                        runner().inventory(root)
 
 
 class CliTests(unittest.TestCase):
@@ -363,14 +577,13 @@ class FailureReportTests(unittest.TestCase):
 
     def test_real_bootstrap_errors_fail_closed_for_direct_and_cli_calls(self):
         manifest_bytes = self.manifest.read_bytes()
-        for field, value, exception in (("excluded_tests", [], AttributeError),
-                                        ("included_tests", None, TypeError),
-                                        ("included_sources", None, TypeError)):
+        for field, value in (("excluded_tests", []), ("included_tests", None),
+                             ("included_sources", None)):
             with self.subTest(field=field):
                 manifest = json.loads(manifest_bytes)
                 manifest[field] = value
                 self.manifest.write_text(json.dumps(manifest))
-                with self.assertRaises(exception):
+                with self.assertRaisesRegex(ValueError, "manifest"):
                     self.run_direct()
                 self.assert_current_failure()
                 result = self.run_cli("--java-home", str(self.java_home))
@@ -400,11 +613,12 @@ class FailureReportTests(unittest.TestCase):
         self.assertEqual(report["test_classes"], [])
 
     def test_direct_bootstrap_failure_cannot_retain_a_passed_report(self):
-        # Real download/checksum rejection, before any compiler invocation.
-        source = self.root / "bad.jar"
-        source.write_bytes(b"checksum fixture")
+        # Real cached-artifact SHA-256 rejection, before any compiler invocation.
+        dependencies = json.loads((ROOT / "verification/dependencies.json").read_text())
         (self.root / "verification/dependencies.json").write_text(json.dumps([
-            {"url": source.as_uri(), "sha1": "0" * 40}]))
+            dict(dependencies[0], sha256="0" * 64)]))
+        cached = self.cache / dependencies[0]["url"].rsplit("/", 1)[1]
+        cached_bytes = cached.read_bytes()
         with self.assertRaisesRegex(ValueError, "checksum mismatch"):
             self.run_direct()
         report = self.assert_current_failure()
@@ -418,6 +632,7 @@ class FailureReportTests(unittest.TestCase):
         report = self.assert_current_failure()
         self.assertEqual(report["tests_run"], 0)
         self.assertNotIn("compile_log", report)
+        self.assertEqual(cached.read_bytes(), cached_bytes, "mismatch must not rewrite cache")
 
 
 if __name__ == "__main__":

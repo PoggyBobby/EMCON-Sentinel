@@ -13,23 +13,130 @@ import tempfile
 import urllib.request
 
 
+def validate_artifact(url, expected):
+    """Only reviewed HTTPS Maven Central paths and exact SHA-256 pins."""
+    if not isinstance(expected, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected):
+        raise ValueError("invalid SHA-256 digest")
+    if not isinstance(url, str) or not re.fullmatch(
+            r"https://repo\.maven\.apache\.org/maven2/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\.jar", url):
+        raise ValueError("unreviewed dependency URL")
+    if any(part in (".", "..") for part in url.split("/")[3:]):
+        raise ValueError("invalid dependency URL path")
+
+
+MAX_ARTIFACT_BYTES = 16 * 1024 * 1024
+
+
 def download_verified(url, destination, expected):
-    """Verify Maven Central's published SHA-1, including cached artifacts."""
+    """Stream bounded bytes; atomically publish only a SHA-256-verified artifact."""
+    validate_artifact(url, expected)
     destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.is_symlink():
+        raise ValueError("refusing symlinked cached artifact: " + destination.name)
     if destination.exists():
-        data = destination.read_bytes()
-    else:
-        with urllib.request.urlopen(url, timeout=60) as response:
-            data = response.read()
-    if hashlib.sha1(data).hexdigest() != expected:
-        raise ValueError("checksum mismatch: " + destination.name)
-    if not destination.exists():
-        destination.write_bytes(data)
+        if destination.stat().st_size > MAX_ARTIFACT_BYTES:
+            raise ValueError("artifact exceeds size limit")
+        if hashlib.sha256(destination.read_bytes()).hexdigest() != expected.lower():
+            raise ValueError("checksum mismatch: " + destination.name)
+        return destination
+    pending = None
+    try:
+        with tempfile.NamedTemporaryFile(prefix=".download-", dir=destination.parent,
+                                         delete=False) as output:
+            pending = Path(output.name)
+            digest = hashlib.sha256()
+            total = 0
+            with urllib.request.urlopen(url, timeout=60) as response:
+                # urllib follows redirects; the final URL must remain reviewed.
+                if getattr(response, "geturl", lambda: url)() != url:
+                    raise ValueError("dependency URL redirected away from reviewed URL")
+                while True:
+                    chunk = response.read(65536)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > MAX_ARTIFACT_BYTES:
+                        raise ValueError("artifact exceeds size limit")
+                    digest.update(chunk)
+                    output.write(chunk)
+            if digest.hexdigest() != expected.lower():
+                raise ValueError("checksum mismatch: " + destination.name)
+            output.flush()
+            os.fsync(output.fileno())
+        pending.replace(destination)
+    finally:
+        if pending is not None:
+            pending.unlink(missing_ok=True)
     return destination
 
 
+def load_dependencies(root):
+    """Fail-closed lock schema: url + lowercase sha256 (+ optional sha1 provenance)."""
+    try:
+        dependencies = json.loads((root / "verification/dependencies.json").read_text())
+    except (OSError, ValueError) as error:
+        raise ValueError("unreadable dependencies.json: " + str(error)) from None
+    if not isinstance(dependencies, list) or not dependencies:
+        raise ValueError("dependencies.json must be a nonempty list")
+    names = set()
+    for dependency in dependencies:
+        if not isinstance(dependency, dict) or not {"url", "sha256"} <= set(dependency) \
+                or not set(dependency) <= {"url", "sha256", "sha1"}:
+            raise ValueError("dependency entries require exactly url, sha256 and optional sha1")
+        validate_artifact(dependency["url"], dependency["sha256"])
+        if not re.fullmatch(r"[0-9a-f]{64}", dependency["sha256"]):
+            raise ValueError("dependency SHA-256 must be lowercase hex")
+        if "sha1" in dependency and not (isinstance(dependency["sha1"], str)
+                                         and re.fullmatch(r"[0-9a-f]{40}", dependency["sha1"])):
+            raise ValueError("dependency sha1 provenance must be 40 lowercase hex")
+        name = dependency["url"].rsplit("/", 1)[1]
+        if name in names:
+            raise ValueError("duplicate dependency cache name: " + name)
+        names.add(name)
+    return dependencies
+
+
+def _manifest_paths(root, base, paths, field):
+    """Relative .java paths that stay inside the repository source root, no symlinks."""
+    if not isinstance(paths, list) or len(paths) != len(set(map(str, paths))):
+        raise ValueError("manifest " + field + " must be a list of unique paths")
+    base_resolved = (root / base).resolve()
+    for path in paths:
+        if not isinstance(path, str) or not re.fullmatch(r"(?:[A-Za-z0-9_$-]+/)*[A-Za-z0-9_$-]+\.java", path):
+            raise ValueError("manifest " + field + " has invalid relative path: " + repr(path))
+        candidate = root / base / path
+        current = root / base
+        for part in path.split("/"):
+            current = current / part
+            if current.is_symlink():
+                raise ValueError("manifest " + field + " path is a symlink: " + path)
+        resolved = candidate.resolve()
+        if base_resolved not in resolved.parents or not resolved.is_file():
+            raise ValueError("manifest " + field + " path is missing or outside its root: " + path)
+    return paths
+
+
+def load_manifest(root):
+    try:
+        manifest = json.loads((root / "verification/java-tests.json").read_text())
+    except (OSError, ValueError) as error:
+        raise ValueError("unreadable test manifest: " + str(error)) from None
+    if not isinstance(manifest, dict) or set(manifest) != {
+            "included_tests", "excluded_tests", "included_sources"}:
+        raise ValueError("manifest requires exactly included_tests, excluded_tests, included_sources")
+    excluded = manifest["excluded_tests"]
+    if not isinstance(excluded, dict) or not all(
+            isinstance(k, str) and isinstance(v, str) for k, v in excluded.items()):
+        raise ValueError("manifest excluded_tests must map paths to reasons")
+    if not isinstance(manifest["included_tests"], list) or not all(
+            isinstance(p, str) for p in manifest["included_tests"]):
+        raise ValueError("manifest included_tests must be a list of paths")
+    _manifest_paths(root, "plugin/app/src/main/java", manifest["included_sources"], "included_sources")
+    return manifest
+
+
 def inventory(root):
-    manifest = json.loads((root / "verification/java-tests.json").read_text())
+    manifest = load_manifest(root)
     included = manifest["included_tests"]
     excluded = manifest["excluded_tests"]
     actual = {str(p.relative_to(root / "plugin/app/src/test/java"))
@@ -43,6 +150,7 @@ def inventory(root):
         raise ValueError("excluded tests require reasons")
     if not included:
         raise ValueError("no included tests: empty JVM verification is not success")
+    _manifest_paths(root, "plugin/app/src/test/java", included, "included_tests")
     return included, excluded
 
 
@@ -94,12 +202,12 @@ def run_logged(command, log, **kwargs):
 def _execute_suite(root, java_home, cache, report_dir, run_dir, report):
     included, excluded = inventory(root)
     report.update(included_tests=included, excluded_tests=excluded)
-    manifest = json.loads((root / "verification/java-tests.json").read_text())
+    manifest = load_manifest(root)
     sources = [root / "plugin/app/src/main/java" / p
                for p in manifest["included_sources"]]
     tests = [root / "plugin/app/src/test/java" / p for p in included]
-    dependencies = json.loads((root / "verification/dependencies.json").read_text())
-    jars = [download_verified(d["url"], cache / d["url"].rsplit("/", 1)[1], d["sha1"])
+    dependencies = load_dependencies(root)
+    jars = [download_verified(d["url"], cache / d["url"].rsplit("/", 1)[1], d["sha256"])
             for d in dependencies]
     inputs = sources + tests + sorted((root / "plugin/app/src/main/assets").rglob("*.json"))
     inputs += [root / "verification/java-tests.json", root / "verification/dependencies.json"]
