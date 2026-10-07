@@ -297,7 +297,26 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1],
                         help="repository root (default: this checkout)")
+    parser.add_argument("--check", action="store_true",
+                        help="compare saved snapshot with current allowlisted values without writing; "
+                             "does not rerun underlying checks")
     args = parser.parse_args(argv)
+    if args.check:
+        try:
+            saved = _read_json(args.root, REPORT_OUTPUT)
+            # Canonical JSON preserves type distinctions such as true/1 and 1.0/1;
+            # ordinary Python object equality would accept those schema aliases.
+            matches = (json.dumps(saved, sort_keys=True, separators=(",", ":")) ==
+                       json.dumps(collect(args.root), sort_keys=True, separators=(",", ":")))
+        except Invalid:
+            matches = False
+        if not matches:
+            print("Saved support snapshot is missing, unsafe, invalid or differs from current "
+                  "allowlisted values; nothing was written.", file=sys.stderr)
+            return 1
+        print("Saved support snapshot matches current allowlisted values; "
+              "underlying checks were not rerun.")
+        return 0
     try:
         write_report(args.root, collect(args.root))
     except (OSError, ValueError):

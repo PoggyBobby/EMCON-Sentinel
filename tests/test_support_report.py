@@ -397,6 +397,139 @@ class SupportReportTests(unittest.TestCase):
                               capture_output=True, text=True, timeout=60,
                               env={"PATH": os.defpath, "HOME": str(self.root / "no-home")})
 
+    def test_check_accepts_current_snapshot_without_rewriting(self):
+        self.write_tool_metadata()
+        self.assertEqual(self.run_cli().returncode, 0)
+        output = self.root / "dist/support-report.json"
+        before = (output.read_bytes(), output.stat().st_ino, output.stat().st_mtime_ns)
+        result = self.run_cli("--check")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(),
+                         "Saved support snapshot matches current allowlisted values; "
+                         "underlying checks were not rerun.")
+        self.assertEqual((output.read_bytes(), output.stat().st_ino,
+                          output.stat().st_mtime_ns), before)
+        self.assertNotIn(str(self.root), result.stdout + result.stderr)
+        self.assertEqual(sorted(p.name for p in output.parent.iterdir()), ["support-report.json"])
+
+    def test_check_rejects_boolean_schema_alias_without_rewriting(self):
+        self.assertEqual(self.run_cli().returncode, 0)
+        output = self.root / "dist/support-report.json"
+        saved = json.loads(output.read_text())
+        saved["schema_version"] = True
+        output.write_text(json.dumps(saved))
+        before = output.read_bytes()
+        result = self.run_cli("--check")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertEqual(output.read_bytes(), before)
+        self.assertNotIn(str(self.root), result.stdout + result.stderr)
+
+    def test_check_missing_snapshot_does_not_create_dist(self):
+        result = self.run_cli("--check")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(list(self.root.iterdir()), [])
+        self.assertEqual(result.stdout, "")
+        self.assertNotIn(str(self.root), result.stderr)
+
+    def test_check_stale_snapshot_does_not_regenerate(self):
+        self.write_tool_metadata()
+        self.assertEqual(self.run_cli().returncode, 0)
+        output = self.root / "dist/support-report.json"
+        before = (output.read_bytes(), output.stat().st_ino, output.stat().st_mtime_ns)
+        self.write_tool_metadata(wrapper_url=
+                                 "https\\://services.gradle.org/distributions/gradle-7.6.3-bin.zip")
+        result = self.run_cli("--check")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual((output.read_bytes(), output.stat().st_ino,
+                          output.stat().st_mtime_ns), before)
+        self.assertEqual(result.stdout, "")
+        self.assertNotIn(str(self.root), result.stderr)
+
+    def test_check_rejects_unexpected_or_malformed_snapshot_without_disclosure(self):
+        self.fixture("verification/build/jvm/summary.json", self.VALID_JVM)
+        report = self.collector().collect(self.root)
+        base = json.dumps(report).encode()
+        secret = "SYNTHETIC_PRIVATE_DETAIL"
+        altered_count = json.loads(base)
+        altered_count["verification"]["jvm"]["tests_run"] = 1.0
+        cases = {
+            "extra_field": base[:-1] + b', "extra": "' + secret.encode() + b'"}',
+            "duplicate_key": base[:-1] + b', "schema_version": 1}',
+            "wrong_schema": json.dumps(dict(report, schema_version=2)).encode(),
+            "float_schema": json.dumps(dict(report, schema_version=1.0)).encode(),
+            "float_count": json.dumps(altered_count).encode(),
+            "missing_field": json.dumps({k: v for k, v in report.items() if k != "scope"}).encode(),
+            "wrong_scope": json.dumps(dict(report, scope=secret)).encode(),
+            "list": b"[]", "null": b"null", "malformed": b"{" + secret.encode(),
+            "non_utf8": base[:-1] + b', "extra": "\xff"}',
+            "nonfinite": base[:-1] + b', "extra": NaN}',
+            "oversized": base[:-1] + b', "extra": "' + b"A" * (300 * 1024) + b'"}',
+            "deep": b"[" * 100000 + b"]" * 100000,
+        }
+        path = self.root / "dist/support-report.json"
+        path.parent.mkdir()
+        for name, data in cases.items():
+            with self.subTest(name):
+                path.write_bytes(data)
+                before = (path.stat().st_ino, path.stat().st_mtime_ns)
+                result = self.run_cli("--check")
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertEqual(path.read_bytes(), data)
+                self.assertEqual((path.stat().st_ino, path.stat().st_mtime_ns), before)
+                for value in (str(self.root), secret, "Traceback"):
+                    self.assertNotIn(value, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, "")
+
+    def test_check_refuses_symlinked_or_special_snapshot(self):
+        outside = Path(self.scratch.name) / "outside"
+        outside.mkdir()
+        target = outside / "saved.json"
+        target.write_text(json.dumps(self.collector().collect(self.root)))
+        dist = self.root / "dist"
+        dist.mkdir()
+        path = dist / "support-report.json"
+        path.symlink_to(target)
+        result = self.run_cli("--check")
+        self.assertEqual(result.returncode, 1)
+        self.assertTrue(path.is_symlink())
+        path.unlink()
+        os.mkfifo(path)
+        result = self.run_cli("--check")
+        self.assertEqual(result.returncode, 1)
+        path.unlink()
+        dist.rmdir()
+        (outside / "support-report.json").write_bytes(target.read_bytes())
+        dist.symlink_to(outside)
+        before = target.read_bytes()
+        result = self.run_cli("--check")
+        self.assertEqual(result.returncode, 1)
+        self.assertTrue(dist.is_symlink())
+        self.assertEqual(target.read_bytes(), before)
+        self.assertEqual(sorted(p.name for p in outside.iterdir()),
+                         ["saved.json", "support-report.json"])
+        self.assertNotIn(str(self.root), result.stdout + result.stderr)
+
+    def test_check_accepts_equivalent_json_formatting(self):
+        self.write_tool_metadata()
+        report = self.collector().collect(self.root)
+        reordered = {key: report[key] for key in reversed(list(report))}
+        path = self.fixture("dist/support-report.json", reordered)
+        before = path.read_bytes()
+        result = self.run_cli("--check")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_check_does_not_certify_saved_jvm_results_or_missing_inputs(self):
+        self.fixture("verification/build/jvm/summary.json", self.VALID_JVM)
+        self.assertEqual(self.run_cli().returncode, 0)
+        result = self.run_cli("--check")
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("underlying checks were not rerun", result.stdout)
+        saved = json.loads((self.root / "dist/support-report.json").read_text())
+        self.assertEqual(saved["verification"]["jvm"]["status"], "passed")
+        self.assertEqual(saved["verification"]["prerequisites"]["status"], "missing")
+        self.assertEqual(saved["tool_metadata"]["status"], "missing")
+
     def test_cli_writes_private_report_under_dist_without_absolute_paths(self):
         self.write_tool_metadata()
         result = self.run_cli()

@@ -116,6 +116,8 @@ python3 scripts/test_java.py                                  # verification/bui
 python3 scripts/release_doctor.py --json > dist/release-doctor.json
 # Collect (POSIX systems: macOS/Linux).
 python3 scripts/support_report.py
+# Read-only comparison of the saved snapshot with current allowlisted values.
+python3 scripts/support_report.py --check
 ```
 
 Output: `dist/support-report.json` (ignored by Git, file mode `0600`). The
@@ -144,6 +146,27 @@ different URL than the one shown. A symlinked `dist/` directory is refused and
 nothing is written. If writing fails part-way (for example, a full disk), the
 temporary file is removed and any previous `dist/support-report.json` is left
 unchanged.
+
+### Checking a saved snapshot
+
+`--check` additionally reads **only** `dist/support-report.json` through the same
+bounded, no-follow regular-file reader. It creates no directories, writes no
+files, and prints no input values. Exit `0` means its parsed JSON exactly matches
+the collector's current allowlisted projection; exit `1` means missing, unsafe,
+malformed, schema-incompatible, or different. JSON whitespace and object-key
+ordering do not matter. Duplicate keys, non-finite numbers, extra/missing fields,
+and numeric type aliases (for example `true` or `1.0` instead of schema version
+`1`) are refused. There is no repair or regeneration in check mode.
+
+This is **snapshot consistency**, not check-execution freshness: it does not
+rerun JUnit or prerequisites, compare source hashes, check timestamps, or prove a
+CI artifact came from this checkout. A matching snapshot containing `missing`,
+`invalid`, `failed`, or `blocked` statuses can pass this comparison. Changes
+outside the allowlisted projection, including source edits or changes to dropped
+fields, are not detected. Rerun the underlying checks first when fresh execution
+evidence is needed. The root and its ancestors are trusted; no multi-file atomic
+snapshot or hostile concurrent-writer guarantee is made. CI artifact parity and
+a single generic checks entry point remain separate work.
 
 ### Reading the report
 
