@@ -50,6 +50,7 @@ OBSERVED_SUFFIXES = ('.html', '.htm', '.xml', '.java', '.kt', '.js', '.py')
 ROLES = {
     'license': lambda name: name == 'LICENSE',
     'manifest': lambda name: name.endswith('.json'),
+    'evidence': lambda name: name.endswith('.json'),
     'gradle': lambda name: name.endswith('.gradle'),  # Groovy DSL only; Kotlin DSL is not parsed
     'wrapper': lambda name: name == 'gradle-wrapper.properties',
     'observed': lambda name: name.endswith(OBSERVED_SUFFIXES),
@@ -436,12 +437,30 @@ def safe_input(root, rel, role):
 
 
 def read_input(path, rel):
+    """Read relative to the validated, trusted root, never following input-directory symlinks."""
+    parts = rel.split('/')
+    opened = []
     try:
-        fd = os.open(str(path), os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0))
-        with os.fdopen(fd, 'rb') as handle:
-            return handle.read()
+        directory = os.open(Path(path).parents[len(parts) - 1], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        opened.append(directory)
+        for part in parts[:-1]:
+            directory = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+            opened.append(directory)
+        fd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+        opened.append(fd)
+        with os.fdopen(fd, 'rb', closefd=False) as handle:
+            info = os.fstat(handle.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                fail(f'input must be a singly linked regular file: {rel}')
+            data = handle.read(4 * 1024 * 1024 + 1)
+            if len(data) > 4 * 1024 * 1024:
+                fail(f'input exceeds 4 MiB limit: {rel}')
+            return data
     except OSError:
         fail(f'unreadable input file: {rel}')
+    finally:
+        for fd in reversed(opened):
+            os.close(fd)
 
 
 def decode_input(data, rel):
@@ -500,8 +519,8 @@ def check_license_evidence(entries, what):
         fail(f'{what} has evidence entries but no declared license; omit it to mark unknown')
 
 
-def load_evidence(path):
-    ev = require_keys(strict_json(path), ('schema', 'disclaimer', 'inputs', 'project', 'maven', 'observed', 'unknown'), (), 'evidence')
+def load_evidence(text, rel):
+    ev = require_keys(strict_json_text(text, rel), ('schema', 'disclaimer', 'inputs', 'project', 'maven', 'observed', 'unknown'), (), 'evidence')
     if ev['schema'] != 'emcon-sentinel.license-evidence.v1':
         fail('unsupported evidence schema')
     text_field(ev, 'disclaimer', 'evidence')
@@ -639,8 +658,6 @@ def add_license(component, entries, evidence_by_ref):
 
 def build(root, evidence_path):
     root = Path(root)
-    ev = load_evidence(evidence_path)
-    inputs = ev['inputs']
     used_inputs = {}
 
     def use(rel, role):
@@ -650,6 +667,9 @@ def build(root, evidence_path):
             fail(f'input changed while reading: {rel}')
         return decode_input(data, rel)
 
+    rel = evidence_rel(root, evidence_path)
+    ev = load_evidence(use(rel, 'evidence'), rel)
+    inputs = ev['inputs']
     project = ev['project']
     license_text = use(project['licenseFile'], 'license')
     if used_inputs[project['licenseFile']] != project['licenseFileSha256']:
@@ -767,7 +787,6 @@ def build(root, evidence_path):
                   prop('emcon:license:disclaimer', ev['disclaimer'])]
     meta_props += [prop('emcon:unparsed:gradle-declaration', label) for label in unparsed_labels]
     meta_props += [prop('emcon:input', f'{rel} sha256:{digest}') for rel, digest in used_inputs.items()]
-    meta_props.append(prop('emcon:input', f'{evidence_rel(root, evidence_path)} sha256:{sha256_file(Path(evidence_path))}'))
     sbom = {
         'bomFormat': 'CycloneDX', 'specVersion': '1.6', 'version': 1,
         'metadata': {
@@ -787,18 +806,12 @@ def build(root, evidence_path):
     return sbom, render_notices(ev, ordered, services, local_files, unparsed_labels, evidence_by_ref)
 
 
-def sha256_file(path):
-    try:
-        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
-    except OSError:
-        fail(f'unreadable input file: {Path(path).name}')
-
-
 def evidence_rel(root, evidence_path):
+    """Keep lexical path segments for allowlist validation; never resolve an evidence symlink."""
     try:
-        return Path(evidence_path).resolve().relative_to(Path(root).resolve()).as_posix()
+        return Path(evidence_path).absolute().relative_to(Path(root).absolute()).as_posix()
     except ValueError:
-        return Path(evidence_path).name
+        fail('evidence input must be inside the selected repository root')
 
 
 def cell(value):
@@ -920,6 +933,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     root = Path(args.root)
     try:
+        if not SAFE_REL.fullmatch(args.evidence) or len(args.evidence) > 300:
+            fail('evidence input must be a plain repository-relative POSIX path')
         sbom, notices = build(root, root / args.evidence)
         sbom_text = json.dumps(sbom, indent=2, sort_keys=False) + '\n'
         if (not re.fullmatch(r'dist/[A-Za-z0-9_][A-Za-z0-9_.-]*\.json', args.output)

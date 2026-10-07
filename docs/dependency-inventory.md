@@ -33,7 +33,7 @@ Code 2 messages name repository-relative paths only. Codes 3 and 4 print only th
 - Check mode opens the output directory and final file with `O_NOFOLLOW`, verifies a singly linked regular file, and compares at most the expected byte length plus one. Publication rechecks the destination type before replacement. Directory-relative operations avoid following a final-file symlink; this is not a guarantee against hostile users with write access to the repository concurrently renaming directories or temporary files.
 - This output implementation targets macOS/Linux POSIX filesystem APIs. The explicitly selected repository root and its ownership are trusted; keep it private from untrusted local writers. No Windows output compatibility or crash-durable two-file transaction is claimed.
 
-These output checks do **not** fix the remaining draft PR's Gradle-parser, evidence-input/provenance or clean-checkout drift-gate findings. This remains a development inventory, not a releasable SBOM.
+These output checks do **not** fix the remaining draft PR's Gradle-parser, evidence URL/coordinate association or clean-checkout drift-gate findings. This remains a development inventory, not a releasable SBOM.
 
 ## What it is — and is not
 
@@ -63,17 +63,19 @@ What is **never** done: running Gradle, resolving transitive dependencies, listi
 
 ### Input path policy
 
-Every input named in the evidence file must pass all of these checks. Otherwise generation stops with exit code 2.
+Every input, including the selected `--evidence` JSON itself, must pass all of these checks **before its content is read**. Otherwise generation stops with exit code 2. The CLI evidence token must be a plain relative path before `pathlib` can normalise it; the programmatic `build(root, evidence_path)` accepts a path under the lexically selected root and rejects outside/traversal paths. The explicitly selected root (including any ancestors) is trusted; evidence symlinks are never resolved into allowed paths.
 
 - **Plain path**: a repository-relative POSIX path made only of `[A-Za-z0-9_.-]` segments. No leading dots, `..`, `:`, backslashes or absolute paths.
 - **Exact spelling**: each segment must match the on-disk directory entry exactly. Case variants such as `PLUGIN/build.gradle` or `Local.Properties` are rejected even on case-insensitive filesystems.
-- **No symlinks**: no segment may be a symlink. The final file is opened with `O_NOFOLLOW`.
+- **No symlinks**: no segment may be a symlink. After validation, input directories and the final file are opened directory-relative with `O_NOFOLLOW`; the final open uses `O_NONBLOCK` so a substituted FIFO cannot hang the reader. The opened file must be a singly linked regular file. These POSIX/macOS/Linux checks also apply to all inputs named by evidence.
+- **Bounded snapshot**: read at most 4 MiB plus one byte; inputs above 4 MiB are rejected. Each emitted input SHA-256 is computed from the exact bytes subsequently decoded/parsed, including evidence. Evidence is not reopened later for hashing. Repeated input references with differing snapshots fail closed. This does not provide a multi-file filesystem snapshot or defend against arbitrary concurrent modification by local repository writers.
 - **Not a credential carrier** (casefolded): no `local.properties`, `gradle.properties`, `keystore.properties`, `signing.properties`, `.netrc`, `.npmrc`, `.pypirc`, `google-services.json`, `credentials.json`, `secrets.json`, `.env*` or `id_rsa*`/`id_ed25519*`. No `*.keystore`, `*.jks`, `*.bks`, `*.p12`, `*.pfx`, `*.key`, `*.pem`, `*.p8`, `*.ppk`, `*.gpg` or `*.asc`. Nothing under `sdk/`, `.git/`, `.gradle/`, `.ssh/`, `.aws/` or `.gnupg/`.
 - **Per-role allowlist**:
 
   | Role | Allowed |
   |---|---|
   | Project license | exactly `LICENSE` |
+  | Evidence JSON | `*.json` (subject to credential/location exclusions) |
   | Verification manifest | `*.json` |
   | Gradle build files | `*.gradle` (Kotlin DSL `*.gradle.kts` is rejected, not mis-parsed) |
   | Wrapper | exactly `gradle-wrapper.properties` |
