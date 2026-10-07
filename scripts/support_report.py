@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Offline, allowlisted support summary. Never run application code or upload."""
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -12,6 +13,8 @@ REPORT_OUTPUT = "dist/support-report.json"
 SCOPE = ("Local offline summary of saved development checks. Not CI, APK, "
          "device, accuracy, or release evidence.")
 JVM_SUMMARY = "verification/build/jvm/summary.json"
+JVM_METADATA_INPUTS = ("verification/java-tests.json", "verification/dependencies.json",
+                       "scripts/test_java.py")
 DOCTOR_OUTPUT = "dist/release-doctor.json"
 WRAPPER_PROPERTIES = "plugin/gradle/wrapper/gradle-wrapper.properties"
 DEPENDENCIES = "verification/dependencies.json"
@@ -293,11 +296,57 @@ def write_report(root, report):
         os.close(root_fd)
 
 
+def jvm_metadata_matches(root):
+    """Compare only three fixed manifest/runner byte digests, not execution."""
+    try:
+        saved = _read_json(root, JVM_SUMMARY)
+        if not isinstance(saved, dict) or not isinstance(saved.get("inputs_sha256"), dict):
+            return False
+        hashes = saved["inputs_sha256"]
+        for relative in JVM_METADATA_INPUTS:
+            data = _read_bytes(root, relative)
+            if data is None or hashlib.sha256(data).hexdigest() != hashes.get(relative):
+                return False
+        return True
+    except Invalid:
+        return False
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1],
                         help="repository root (default: this checkout)")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--check", action="store_true",
+                       help="compare saved snapshot with current allowlisted values without writing; "
+                            "does not rerun underlying checks")
+    modes.add_argument("--check-jvm-metadata", action="store_true",
+                       help="compare saved JVM manifest/runner hashes only; no test execution")
     args = parser.parse_args(argv)
+    if args.check_jvm_metadata:
+        if not jvm_metadata_matches(args.root):
+            print("Saved JVM manifest/runner linkage is missing, unsafe, invalid or differs; "
+                  "nothing was written.", file=sys.stderr)
+            return 1
+        print("Saved JVM manifest/runner hashes match current bytes; "
+              "test execution and source/assets were not verified.")
+        return 0
+    if args.check:
+        try:
+            saved = _read_json(args.root, REPORT_OUTPUT)
+            # Canonical JSON preserves type distinctions such as true/1 and 1.0/1;
+            # ordinary Python object equality would accept those schema aliases.
+            matches = (json.dumps(saved, sort_keys=True, separators=(",", ":")) ==
+                       json.dumps(collect(args.root), sort_keys=True, separators=(",", ":")))
+        except Invalid:
+            matches = False
+        if not matches:
+            print("Saved support snapshot is missing, unsafe, invalid or differs from current "
+                  "allowlisted values; nothing was written.", file=sys.stderr)
+            return 1
+        print("Saved support snapshot matches current allowlisted values; "
+              "underlying checks were not rerun.")
+        return 0
     try:
         write_report(args.root, collect(args.root))
     except (OSError, ValueError):
