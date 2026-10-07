@@ -213,6 +213,39 @@ support-source freshness remain separate work. The [generic test entry
 point](#one-command-for-the-generic-test-suites) executes tests but deliberately
 does not refresh this saved support snapshot.
 
+### Checking saved JVM manifest/runner linkage
+
+```sh
+python3 scripts/support_report.py --check-jvm-metadata
+```
+
+This optional, mutually exclusive check compares **only three fixed raw-byte
+SHA-256 digests** in the saved JVM `inputs_sha256` object with this checkout:
+`verification/java-tests.json`, `verification/dependencies.json` and
+`scripts/test_java.py`. It reads the saved JVM summary once and each of these
+fixed inputs once using the same bounded, no-follow regular-file reader. Hash
+keys from the saved summary are never used as filesystem paths; additional keys
+are ignored. Missing, unsafe, malformed or oversized inputs, missing hashes,
+non-string/incorrect/uppercase digests and byte changes return `1` with a fixed,
+value-free diagnostic. Matching lowercase digests return `0`. No files or
+folders are created or rewritten, no support collection occurs, and no JVM,
+prerequisite, application code or network operation is executed. The existing
+support JSON schema and `--check` semantics do not change.
+
+This is deliberately **manifest/runner byte linkage only**, not general source
+freshness, schema validation of the complete JVM report or authenticated
+execution. It does not check Java sources, tests, assets, dependency-cache bytes,
+logs, class counts, compile status, result status or timestamps. A saved failed,
+running or otherwise non-successful report can pass this linkage check; a
+matching forged report can also pass. It does not attest that the recorded
+hashes were the bytes actually compiled, prove a CI artifact came from this
+checkout, or certify passing tests. Root/ancestors and checkout ownership remain
+trusted; no multi-file atomic snapshot or hostile concurrent-writer guarantee is
+made. Neither this mode nor `--check` reruns tests or refreshes snapshots. Use the
+generic test entry point for current execution and rerun the direct JVM command
+for a fresh saved report. CI support export/parity and full source/asset freshness
+remain separate work.
+
 ### Reading the report
 
 | Status | Meaning |
