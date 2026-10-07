@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import sys
 import uuid
 from datetime import datetime
@@ -845,10 +846,58 @@ def render_notices(ev, components, services, local_files, unparsed_labels, evide
 
 
 def output_current(path, text):
+    """Compare bounded bytes without following output-directory or final-file symlinks."""
     try:
-        return path.is_file() and path.read_bytes() == text.encode('utf-8')
-    except OSError:
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    except FileNotFoundError:
         return False
+    try:
+        try:
+            fd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+        except FileNotFoundError:
+            return False
+        try:
+            with os.fdopen(fd, 'rb', closefd=False) as handle:
+                info = os.fstat(handle.fileno())
+                if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                    raise OSError('unsafe output file type')
+                expected = text.encode('utf-8')
+                return handle.read(len(expected) + 1) == expected
+        finally:
+            os.close(fd)
+    finally:
+        os.close(directory)
+
+
+def write_output(path, text):
+    """Replace one artifact atomically; keep the previous artifact on pre-replace failure."""
+    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        temporary = '.inventory-' + uuid.uuid4().hex
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                     0o600, dir_fd=directory)
+        try:
+            try:
+                with os.fdopen(fd, 'wb', closefd=False) as handle:
+                    handle.write(text.encode('utf-8'))
+                    handle.flush()
+                    os.fsync(handle.fileno())
+            finally:
+                os.close(fd)
+            try:
+                info = os.stat(path.name, dir_fd=directory, follow_symlinks=False)
+            except FileNotFoundError:
+                info = None
+            if info is not None and (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1):
+                raise OSError('unsafe output file type')
+            os.replace(temporary, path.name, src_dir_fd=directory, dst_dir_fd=directory)
+        finally:
+            try:
+                os.unlink(temporary, dir_fd=directory)
+            except FileNotFoundError:
+                pass
+    finally:
+        os.close(directory)
 
 
 def main(argv=None):
@@ -863,7 +912,21 @@ def main(argv=None):
     try:
         sbom, notices = build(root, root / args.evidence)
         sbom_text = json.dumps(sbom, indent=2, sort_keys=False) + '\n'
+        if (not re.fullmatch(r'dist/[A-Za-z0-9_][A-Za-z0-9_.-]*\.json', args.output)
+                or not re.fullmatch(r'docs/[A-Za-z0-9_][A-Za-z0-9_.-]*\.md', args.notices)):
+            raise OSError('output path outside artifact allowlist')
         outputs = {root / args.output: sbom_text, root / args.notices: notices}
+        if any(path.is_symlink() or any(parent.is_symlink() for parent in path.parents
+                                        if parent != root and parent.is_relative_to(root))
+               for path in outputs):
+            raise OSError('unsafe output location')
+        for path in outputs:
+            try:
+                info = path.lstat()
+            except FileNotFoundError:
+                continue
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                raise OSError('unsafe output file type')
         if args.check:
             stale = [p.relative_to(root).as_posix() if p.is_relative_to(root) else p.name for p, text in outputs.items()
                      if not output_current(p, text)]
@@ -873,7 +936,7 @@ def main(argv=None):
         else:
             for path, text in outputs.items():
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(text.encode('utf-8'))
+                write_output(path, text)
     except InventoryError as exc:
         print(f'error: {exc}', file=sys.stderr)
         return 2

@@ -382,9 +382,10 @@ class CliErrorTests(unittest.TestCase):
     def test_output_write_failure_and_unexpected_errors_have_distinct_path_free_codes(self):
         with tempfile.TemporaryDirectory() as tmp:
             fixture_repo(tmp)
-            write(tmp, 'blocker', 'not a directory')
-            code, err = self.run_main(tmp, '--output', 'blocker/sbom.json')
+            write(tmp, 'dist', 'not a directory')
+            code, err = self.run_main(tmp, '--output', 'dist/sbom.json')
             self.assertEqual(code, 3, err)
+            self.assertIn('(NotADirectoryError)', err)
             self.assertNotIn(tmp, err)
             self.assertNotIn('Traceback', err)
             module = tool()

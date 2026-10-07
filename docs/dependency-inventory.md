@@ -20,10 +20,20 @@ Exit codes:
 | `0` | OK |
 | `1` | Stale or missing output (`--check`) |
 | `2` | Malformed, disallowed, unreadable or drifted input (also argparse usage errors) |
-| `3` | I/O failure writing or reading outputs |
+| `3` | Unsafe output location or I/O failure writing or reading outputs |
 | `4` | Unexpected internal error |
 
 Code 2 messages name repository-relative paths only. Codes 3 and 4 print only the exception type; details are suppressed so local paths never reach logs. No traceback is printed.
+
+## Output path and publication policy
+
+- `--output` accepts only a direct child `dist/<name>.json`; `--notices` accepts only a direct child `docs/<name>.md`. Names start with an ASCII letter, digit or underscore and contain only letters, digits, underscores, dots or hyphens. Absolute paths, traversal, hidden names, nested directories and other repository locations are rejected with exit 3. These restrictions apply in write and check modes.
+- Both destinations are preflighted before either artifact is written. Existing symlinked directories/files (including dangling links), special files and multiply linked files are rejected. Missing artifacts are stale in check mode, not successful verification.
+- Each write uses an exclusive, mode-0600 temporary file in the destination directory, flushes and fsyncs it, then publishes with directory-relative `os.replace`. Failure before replacement leaves that artifact's previous contents intact and removes the temporary file. Each artifact is atomic individually; the SBOM and notices are **not a two-file transaction**. If the second publication fails, rerun generation before checking the pair.
+- Check mode opens the output directory and final file with `O_NOFOLLOW`, verifies a singly linked regular file, and compares at most the expected byte length plus one. Publication rechecks the destination type before replacement. Directory-relative operations avoid following a final-file symlink; this is not a guarantee against hostile users with write access to the repository concurrently renaming directories or temporary files.
+- This output implementation targets macOS/Linux POSIX filesystem APIs. The explicitly selected repository root and its ownership are trusted; keep it private from untrusted local writers. No Windows output compatibility or crash-durable two-file transaction is claimed.
+
+These output checks do **not** fix the remaining draft PR's Gradle-parser, evidence-input/provenance or clean-checkout drift-gate findings. This remains a development inventory, not a releasable SBOM.
 
 ## What it is — and is not
 
