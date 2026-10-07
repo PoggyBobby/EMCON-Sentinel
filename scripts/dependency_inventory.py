@@ -406,7 +406,9 @@ def parse_gradle_text(text, source):
             if quote_ in ("'", '"') and after <= e and re.fullmatch(r'\s*\)\s*', code[after:e]):
                 item = coordinate_item('dependencySubstitution', quote_, content, where(m.start()), variables)
         found.append((m.start(), item or unparsed_item('substitute', 'substitution', where(m.start()))))
-    for m in re.finditer(r'(?<![\w.$])(force|useTarget|useVersion)\s*[(\'"]', code):
+    # Conservative identifier observations, not evaluation: qualified calls,
+    # nonliteral arguments and method/property references may affect resolution.
+    for m in re.finditer(r'(?<![\w$])(force|forcedModules|useTarget|useVersion)(?![\w$])', code):
         if outside(m.start()):
             found.append((m.start(), unparsed_item(m.group(1), 'resolution-strategy', where(m.start()))))
     for m in re.finditer(r'(?<![\w.$])([A-Za-z_]\w*)\s*\(?\s*[\'"]', code):
