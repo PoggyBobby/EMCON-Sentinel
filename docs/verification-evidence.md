@@ -1,6 +1,6 @@
 # Argus development handoff — verification evidence
 
-> Historical verification record: publication statements below describe the original local handoff. Subsequent branch pushes do not establish APK readiness or remote CI success.
+> Historical verification record: publication statements and unresolved checker findings below describe the original local handoff. The descriptor fixes subsequently passed independent review and all 34 checker regression tests; the tool remains structural diagnostics only. New branch pushes or attribution changes do not themselves establish APK readiness or CI success.
 
 **Status: unreleased development source, not an installable or customer-ready product.**
 

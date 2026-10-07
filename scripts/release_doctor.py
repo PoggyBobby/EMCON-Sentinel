@@ -55,12 +55,23 @@ def sdk_archives_present(props):
             info = archive.getinfo("META-INF/gradle-plugins/atak-takdev-plugin.properties")
             if info.file_size > 4096 or info.compress_type not in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED):
                 return False
-            descriptor = archive.read(info).decode("utf-8")
-            # Block duplicate keys, including assignments with unsupported/empty values.
-            keys = re.findall(r"(?m)^[ \t\f]*implementation-class(?=[ \t\f\r=:]|$)", descriptor)
-            if len(keys) != 1:
+            descriptor = archive.read(info).decode("ascii").replace("\r\n", "\n").replace("\r", "\n")
+            if any((ord(char) < 32 and char not in "\t\n\f") or ord(char) == 127 for char in descriptor):
                 return False
-            match = re.search(r"(?m)^implementation-class[ \t]*=[ \t]*([\w.$]+)[ \t\r]*$", descriptor)
+            implementations = []
+            for line in descriptor.split("\n"):
+                line = line.lstrip(" \t\f")
+                if not line or line.startswith(("#", "!")):
+                    continue
+                assignment = re.fullmatch(r"([A-Za-z0-9_.-]+)[ \t\f]*=(.*)", line)
+                if not assignment or "\\" in line:
+                    return False
+                if assignment.group(1) == "implementation-class":
+                    implementations.append(assignment.group(2).lstrip(" \t\f"))
+            # Unlike local configuration, duplicate implementation keys are always blocked.
+            if len(implementations) != 1:
+                return False
+            match = re.fullmatch(r"([\w.$]+)[ \t]*", implementations[0])
             if not match:
                 return False
             return archive.getinfo(match.group(1).replace(".", "/") + ".class").file_size > 0

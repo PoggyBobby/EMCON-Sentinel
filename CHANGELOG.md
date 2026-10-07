@@ -22,6 +22,10 @@ release is asserted by this initial entry.
 - Add a stdlib-only, secret-free offline build-prerequisite checker, an explicit
   local configuration template, and regression tests for malformed inputs.
 - Pin the Gradle distribution's published SHA-256 and expand secret-file ignores.
+- Close descriptor false-success cases with an enforced ASCII properties subset;
+  34 checker regression tests and an independent review pass.
+- Replace deprecated action versions with official Node.js 24 releases pinned
+  to immutable commit SHAs.
 
 ### Status and limitations
 
@@ -30,8 +34,9 @@ release is asserted by this initial entry.
 - The source declares ATAK-CIV 4.6.0, minimum Android API 21, and compile/target
   API 34; these do not establish a tested compatibility range. Other template
   flavors are not supported by evidence here.
-- No working APK, successful test run, SDK access, approved release signing,
-  device validation, production readiness, or export classification is claimed.
+- Generic tooling and the SDK-independent JVM test subset are verified. No
+  working APK, full SDK build, approved release signing, device validation,
+  production readiness, or export classification is established.
 - Build configuration's `PLUGIN_VERSION = "1.0"` is not evidence of a shipped
   1.0 release. Release history before this file has not been reconstructed.
 

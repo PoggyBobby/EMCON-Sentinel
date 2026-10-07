@@ -55,7 +55,7 @@ class ReleaseDoctorTest(unittest.TestCase):
         return sdk
 
     def sdk_archives(self, descriptor: Union[str, bytes] = "implementation-class=example.Plugin",
-                     compression=zipfile.ZIP_STORED, include_class=True):
+                     compression=zipfile.ZIP_STORED, include_class=True, class_name="example.Plugin"):
         # Structural fixtures only: not a functional SDK or Gradle plugin.
         sdk = self.root / "sdk"
         sdk.mkdir(exist_ok=True)
@@ -65,7 +65,7 @@ class ReleaseDoctorTest(unittest.TestCase):
         with zipfile.ZipFile(jar, "w", compression=compression) as archive:
             archive.writestr(DESCRIPTOR, descriptor)
             if include_class:
-                archive.writestr("example/Plugin.class", b"fixture")
+                archive.writestr(class_name.replace(".", "/") + ".class", b"structural fixture, not a usable class")
         return {"sdk.path": str(sdk), "takdev.plugin": str(jar)}
 
     def signing_properties(self, password="fixture-password-not-a-real-credential"):
@@ -248,6 +248,75 @@ class ReleaseDoctorTest(unittest.TestCase):
             with self.subTest(last=last):
                 descriptor = "implementation-class=example.Plugin\n" + last + "\n"
                 self.write_properties(self.sdk_archives(descriptor))
+                self.assertEqual("blocked", self.status(self.inspect(), "atak_sdk"))
+
+    def test_descriptor_duplicates_cannot_hide_behind_line_endings(self):
+        for separator in ("\n", "\r\n", "\r"):
+            with self.subTest(separator=repr(separator)):
+                descriptor = separator.join(("implementation-class=example.Plugin", "x=1",
+                                             "implementation-class=example.Missing"))
+                self.write_properties(self.sdk_archives(descriptor))
+                self.assertEqual("blocked", self.status(self.inspect(), "atak_sdk"))
+        # Independent review's mixed LF/CR case: only the first class exists.
+        self.write_properties(self.sdk_archives(
+            "implementation-class=example.Plugin\nx=1\rimplementation-class=example.Missing"))
+        self.assertEqual("blocked", self.status(self.inspect(), "atak_sdk"))
+
+    def test_descriptor_escaped_keys_cannot_hide_duplicates(self):
+        for escaped_key in (r"implementation\-class", r"\u0069mplementation-class"):
+            with self.subTest(escaped_key=escaped_key):
+                descriptor = "implementation-class=example.Plugin\n" + escaped_key + "=example.Missing"
+                self.write_properties(self.sdk_archives(descriptor))
+                self.assertEqual("blocked", self.status(self.inspect(), "atak_sdk"))
+
+    def test_descriptor_backslash_values_and_phantom_assignments_are_blocked(self):
+        descriptors = ["foo=bar\\" + separator + "implementation-class=example.Plugin"
+                       for separator in ("\n", "\r\n", "\r")]
+        descriptors.extend(("implementation-class=example.Plugin\nunused=\\u0041",
+                            "implementation-class=example.Plugin\nunused=back\\slash",
+                            r"implementation-class=example.\u0050lugin"))
+        for descriptor in descriptors:
+            with self.subTest(descriptor=descriptor):
+                self.write_properties(self.sdk_archives(descriptor))
+                self.assertEqual("blocked", self.status(self.inspect(), "atak_sdk"))
+
+    def test_descriptor_non_ascii_is_blocked_even_when_class_entry_exists(self):
+        for class_name in ("example.Plugín", "example.插件"):
+            with self.subTest(class_name=class_name):
+                props = self.sdk_archives("implementation-class=" + class_name, class_name=class_name)
+                with zipfile.ZipFile(props["takdev.plugin"]) as archive:
+                    self.assertGreater(archive.getinfo(class_name.replace(".", "/") + ".class").file_size, 0)
+                self.write_properties(props)
+                self.assertEqual("blocked", self.status(self.inspect(), "atak_sdk"))
+        self.write_properties(self.sdk_archives("implementation-class=example.Plugin\nunused=café"))
+        self.assertEqual("blocked", self.status(self.inspect(), "atak_sdk"))
+
+    def test_descriptor_control_characters_are_blocked(self):
+        for control in ("\x00", "\v", "\x1f", "\x7f"):
+            for line in ("unused=bad" + control + "value", "# bad" + control + "comment"):
+                with self.subTest(line=line):
+                    self.write_properties(self.sdk_archives("implementation-class=example.Plugin\n" + line))
+                    self.assertEqual("blocked", self.status(self.inspect(), "atak_sdk"))
+
+    def test_descriptor_supported_subset_with_all_line_endings(self):
+        lines = (" # structural fixture comment", "\t! another comment", "", "\f",
+                 "unused.key-1 = https://fixture.invalid/a=b#c!d\t\f",
+                 "  implementation-class \t\f= \t\fexample.Plugin\t ")
+        for compression in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED):
+            for separator in ("\n", "\r\n", "\r"):
+                with self.subTest(compression=compression, separator=repr(separator)):
+                    self.write_properties(self.sdk_archives(separator.join(lines) + separator,
+                                                           compression=compression))
+                    self.assertEqual("ok", self.status(self.inspect(), "atak_sdk"))
+        self.write_properties(self.sdk_archives("implementation-class=example.Plugin$Nested",
+                                               class_name="example.Plugin$Nested"))
+        self.assertEqual("ok", self.status(self.inspect(), "atak_sdk"))
+
+    def test_descriptor_unsupported_assignment_syntax_is_blocked(self):
+        for line in ("unused:value", "unused value", "unused", "bad key=value",
+                     "implementation-class:example.Missing", "implementation-class example.Missing"):
+            with self.subTest(line=line):
+                self.write_properties(self.sdk_archives("implementation-class=example.Plugin\n" + line))
                 self.assertEqual("blocked", self.status(self.inspect(), "atak_sdk"))
 
     def test_descriptor_value_cannot_start_on_next_line(self):

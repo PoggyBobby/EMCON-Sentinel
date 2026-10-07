@@ -8,7 +8,7 @@
 
 ```sh
 python3 -m unittest discover -s tests -v
-# Experimental diagnostics only; see scripts/README.md for unresolved review findings.
+# Offline structural diagnostics only; not a build or production-release gate.
 python3 scripts/release_doctor.py --json
 # With JAVA_HOME pointing to JDK 17:
 python3 scripts/test_java.py
