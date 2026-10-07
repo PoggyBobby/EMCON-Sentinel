@@ -1,0 +1,193 @@
+{
+  "schema": "emcon-sentinel.license-evidence.v1",
+  "disclaimer": "Records what upstream metadata declares, retrieved over official HTTPS endpoints; this is not a legal determination and not a complete release-artifact license review.",
+  "inputs": {
+    "verificationManifest": "verification/dependencies.json",
+    "gradleBuildFiles": [
+      "plugin/build.gradle",
+      "plugin/app/build.gradle"
+    ],
+    "gradleWrapperProperties": "plugin/gradle/wrapper/gradle-wrapper.properties"
+  },
+  "project": {
+    "name": "EMCON-Sentinel",
+    "licenseId": "Apache-2.0",
+    "licenseFile": "LICENSE",
+    "licenseFileSha256": "b08b90ce7d814d8fd4c84b9d12f2983e341fede937c479e09050303f9d5478f4",
+    "basis": "The root LICENSE file contains the Apache License, Version 2.0 text with the appendix notice 'Copyright 2026 EMCON Sentinel contributors'. It covers this repository's own source only, not the ATAK SDK, external services or data."
+  },
+  "maven": {
+    "junit:junit:4.13.2": {
+      "artifact": {
+        "url": "https://repo.maven.apache.org/maven2/junit/junit/4.13.2/junit-4.13.2.jar",
+        "sha1": "8ac9e16d933b6fb43bc7f576336b8f4d7eb5ba12",
+        "sha256": "8e495b634469d64fb8acfa3495a065cbacc8a0fff55ce1e31007be4c16dc57d3"
+      },
+      "licenseEvidence": [
+        {
+          "relation": "self",
+          "pomCoordinate": "junit:junit:4.13.2",
+          "url": "https://repo.maven.apache.org/maven2/junit/junit/4.13.2/junit-4.13.2.pom",
+          "sha256": "569b6977ee4603c965c1c46c3058fa6e969291b0160eb6964dd092cd89eadd94",
+          "retrievedAtUtc": "2026-10-07T05:54:00Z",
+          "declaredLicenses": [
+            {
+              "name": "Eclipse Public License 1.0",
+              "url": "http://www.eclipse.org/legal/epl-v10.html"
+            }
+          ]
+        }
+      ]
+    },
+    "org.hamcrest:hamcrest-core:1.3": {
+      "artifact": {
+        "url": "https://repo.maven.apache.org/maven2/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar",
+        "sha1": "42a25dc3219429f0e5d060061f71acb49bf010a0",
+        "sha256": "66fdef91e9739348df7a096aa384a5685f4e875584cce89386a7a47251c4d8e9"
+      },
+      "licenseEvidence": [
+        {
+          "relation": "self",
+          "pomCoordinate": "org.hamcrest:hamcrest-core:1.3",
+          "url": "https://repo.maven.apache.org/maven2/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.pom",
+          "sha256": "fde386a7905173a1b103de6ab820727584b50d0e32282e2797787c20a64ffa93",
+          "retrievedAtUtc": "2026-10-07T05:54:00Z",
+          "declaredLicenses": []
+        },
+        {
+          "relation": "parent",
+          "pomCoordinate": "org.hamcrest:hamcrest-parent:1.3",
+          "url": "https://repo.maven.apache.org/maven2/org/hamcrest/hamcrest-parent/1.3/hamcrest-parent-1.3.pom",
+          "sha256": "6d535f94efb663bdb682c9f27a50335394688009642ba7a9677504bc1be4129b",
+          "retrievedAtUtc": "2026-10-07T05:54:00Z",
+          "declaredLicenses": [
+            {
+              "name": "New BSD License",
+              "url": "http://www.opensource.org/licenses/bsd-license.php"
+            }
+          ]
+        }
+      ]
+    },
+    "com.google.code.gson:gson:2.10.1": {
+      "artifact": {
+        "url": "https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar",
+        "sha1": "b3add478d4382b78ea20b1671390a858002feb6c",
+        "sha256": "4241c14a7727c34feea6507ec801318a3d4a90f070e4525681079fb94ee4c593"
+      },
+      "licenseEvidence": [
+        {
+          "relation": "self",
+          "pomCoordinate": "com.google.code.gson:gson:2.10.1",
+          "url": "https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom",
+          "sha256": "d2b115634f5c085db4b9c9ffc2658e89e231fdbfbe2242121a1cd95d4d948dd7",
+          "retrievedAtUtc": "2026-10-07T05:54:00Z",
+          "declaredLicenses": [
+            {
+              "name": "Apache-2.0",
+              "url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+            }
+          ]
+        },
+        {
+          "relation": "parent",
+          "pomCoordinate": "com.google.code.gson:gson-parent:2.10.1",
+          "url": "https://repo.maven.apache.org/maven2/com/google/code/gson/gson-parent/2.10.1/gson-parent-2.10.1.pom",
+          "sha256": "4248e0882426c615182385d6086c3ef3262e769957189e29306280b85482b833",
+          "retrievedAtUtc": "2026-10-07T05:54:00Z",
+          "declaredLicenses": [
+            {
+              "name": "Apache-2.0",
+              "url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "observed": [
+    {
+      "id": "leaflet",
+      "type": "library",
+      "name": "leaflet",
+      "version": "1.9.4",
+      "purl": "pkg:npm/leaflet@1.9.4",
+      "source": "sim/index.html",
+      "markers": [
+        "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+        "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=",
+        "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+        "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      ],
+      "note": "Loaded at runtime from the unpkg CDN by the browser simulator with SRI pins; not vendored. The SRI values matched unpkg content when evidence was captured.",
+      "licenseEvidence": [
+        {
+          "relation": "registry-metadata",
+          "url": "https://registry.npmjs.org/leaflet/1.9.4",
+          "retrievedAtUtc": "2026-10-07T05:54:00Z",
+          "declaredLicenses": [
+            {
+              "name": "BSD-2-Clause"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "openstreetmap-tiles",
+      "type": "service",
+      "name": "OpenStreetMap tile service",
+      "source": "sim/index.html",
+      "markers": [
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      ],
+      "endpoints": [
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      ],
+      "note": "Map tiles and map data fetched at runtime by the simulator. Provider terms, tile usage policy, data license and attribution duties are not evaluated here and are not granted by this repository's license."
+    },
+    {
+      "id": "esri-world-imagery",
+      "type": "service",
+      "name": "Esri World Imagery tile service",
+      "source": "plugin/app/src/main/assets/mobac/esri_world_imagery.xml",
+      "markers": [
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"
+      ],
+      "endpoints": [
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"
+      ],
+      "note": "Imagery tile source definition shipped as an asset. Provider terms, imagery license and attribution duties are not evaluated here and are not granted by this repository's license."
+    },
+    {
+      "id": "cloudrf-api",
+      "type": "service",
+      "name": "CloudRF path API",
+      "source": "plugin/app/src/main/java/com/emconsentinel/prop/CloudRfEngine.java",
+      "markers": [
+        "https://api.cloudrf.com/path/"
+      ],
+      "endpoints": [
+        "https://api.cloudrf.com/path/"
+      ],
+      "note": "Optional remote API endpoint referenced in source. Account terms, service terms and result-data rights are not evaluated here and are not granted by this repository's license."
+    }
+  ],
+  "unknown": [
+    {
+      "id": "android-platform",
+      "name": "Android SDK platform and build tools (compileSdkVersion 34)",
+      "note": "Provided by the local Android SDK installation; contents and license terms are not inventoried."
+    },
+    {
+      "id": "atak-sdk",
+      "name": "ATAK CIV SDK (ATAK_VERSION 4.6.0) and local atak-gradle-takdev plugin JAR",
+      "note": "Obtained separately and kept out of the repository; license and redistribution terms are UNKNOWN to this inventory and no SDK packages are listed. Review the SDK's own license before any distribution."
+    },
+    {
+      "id": "pymavlink",
+      "name": "pymavlink / pyserial (optional Python tools, unpinned)",
+      "note": "Named in tools/c2_bridge.py install instructions with no pinned version or manifest; not inventoried and license not evaluated."
+    }
+  ]
+}
