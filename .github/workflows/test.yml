@@ -17,11 +17,12 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-    env:
-      JAVA_TEST_CACHE: ${{ runner.temp }}/java-dependencies
-      JAVA_TEST_SCRATCH: ${{ runner.temp }}/java-runner-fixtures
     steps:
       - uses: actions/checkout@v4
+      - name: Configure runner-local scratch paths
+        run: |
+          printf 'JAVA_TEST_CACHE=%s/java-dependencies\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'JAVA_TEST_SCRATCH=%s/java-runner-fixtures\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
