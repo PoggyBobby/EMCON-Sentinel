@@ -2,15 +2,24 @@ name: Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, "product/**"]
   pull_request:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   unit-tests:
-    name: JUnit (pure Java math + data layer)
+    name: JUnit (SDK-independent JVM subset, not Android/ATAK)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      JAVA_TEST_CACHE: ${{ runner.temp }}/java-dependencies
+      JAVA_TEST_SCRATCH: ${{ runner.temp }}/java-runner-fixtures
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 17
@@ -18,59 +27,31 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ hashFiles('plugin/**/*.gradle*', 'plugin/**/gradle-wrapper.properties') }}
-          restore-keys: gradle-
-      - name: Generate dummy debug keystore
+          python-version: '3.12'
+      - name: Test offline release-prerequisite checker
+        run: python3 -m unittest discover -s tests -v
+      - name: Test verification infrastructure
+        run: python3 -m unittest discover -s verification -p 'test_*.py' -v
+      - name: Enumerate included and excluded existing tests
+        run: python3 scripts/test_java.py --list
+      - name: Compile current pure-Java sources and execute existing JUnit tests
+        run: python3 scripts/test_java.py
+      - name: State coverage boundary
+        if: always()
         run: |
-          keytool -genkey -v \
-            -keystore plugin/debug.keystore \
-            -alias androiddebugkey -storepass android -keypass android \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=EMCON Sentinel CI, O=EMCON Sentinel, C=US"
-      - name: Bootstrap atak SDK stub
-        env:
-          WS: ${{ github.workspace }}
-        run: |
-          mkdir -p "$WS/sdk-stub"
-          touch "$WS/sdk-stub/main.jar"
-      - name: Write local.properties
-        env:
-          WS: ${{ github.workspace }}
-        run: |
-          cat > plugin/local.properties <<EOF
-          sdk.dir=$ANDROID_HOME
-          sdk.path=$WS/sdk-stub
-          takdev.plugin=$WS/sdk-stub/main.jar
-          takDebugKeyFile=$WS/plugin/debug.keystore
-          takDebugKeyFilePassword=android
-          takDebugKeyAlias=androiddebugkey
-          takDebugKeyPassword=android
-          takReleaseKeyFile=$WS/plugin/debug.keystore
-          takReleaseKeyFilePassword=android
-          takReleaseKeyAlias=androiddebugkey
-          takReleaseKeyPassword=android
-          EOF
-      - name: Run pure-Java unit tests
-        working-directory: plugin
-        run: |
-          chmod +x ./gradlew
-          ./gradlew :app:testCivDebugUnitTest --no-daemon
-      - name: Upload test report on failure
-        if: failure()
+          printf '%s\n' 'This job tests an SDK-independent JVM source subset and generic release tooling.' >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' 'Use the uploaded current-run summary.json for actual counts and pass/fail evidence; absent reports mean execution was not verified.' >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' 'It does NOT build an APK or validate Android/ATAK integration, signing, sensors, UI, or device behavior. A real licensed SDK is required for those checks.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload JVM reports and source provenance
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-report
-          path: plugin/app/build/reports/tests/
+          name: jvm-subset-test-report
+          path: verification/build/jvm/
+          if-no-files-found: warn
 
   sim-lint:
     name: Web simulator structure

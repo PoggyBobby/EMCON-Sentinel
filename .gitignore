@@ -20,6 +20,14 @@ tools/reference/
 *.keystore
 *.jks
 *.p12
+*.pfx
+*.key
+.env
+.env.*
+!*.env.example
+
+# Distribution output is not source
+/dist/
 
 # OS noise
 .DS_Store

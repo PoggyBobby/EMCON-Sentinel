@@ -1,6 +1,6 @@
 # OSINT sources for EMCON Sentinel adversary library
 
-Every numeric parameter in `plugin/app/src/main/assets/adversary_df_systems.json` traces to one or more public sources. Nothing classified, nothing FOUO, nothing ITAR-restricted. EAR99 throughout.
+The original prototype attributes parameters in `plugin/app/src/main/assets/adversary_df_systems.json` to the public sources listed below. These attributions have not been independently validated for a product release. Public-source attribution does not establish export classification or unrestricted distribution; qualified legal and source-license review remains required.
 
 | System | Frequency range | Sensitivity | Antenna gain | Range | τ (time-to-fix) | Sources |
 |---|---|---|---|---|---|---|

@@ -1,8 +1,22 @@
 # EMCON Sentinel
 
-**Real-time RF detectability dashboard for drone operators. ATAK-CIV plugin.**
+**EMCON Sentinel — an Argus Defense Systems ATAK-CIV plugin prototype.**
 
-> Converts *"I don't know if I'm exposed"* into *"I have 45 seconds to move 200m NW."*
+> **Release status: development only.** No installable, host-validated release APK is supplied by this source checkout. The configured target is ATAK-CIV 4.6.0; Android/ATAK compatibility and signing acceptance require device validation. Modeled outputs are not validated safety guarantees. See [release readiness](docs/release-readiness.md), [build prerequisites](plugin/README.md), and [security/privacy limitations](SECURITY.md).
+
+### Developer verification
+
+```sh
+python3 -m unittest discover -s tests -v
+# Experimental diagnostics only; see scripts/README.md for unresolved review findings.
+python3 scripts/release_doctor.py --json
+# With JAVA_HOME pointing to JDK 17:
+python3 scripts/test_java.py
+```
+
+The doctor is an offline prerequisite check and exits nonzero when configuration is missing. The [SDK-independent JVM runner](verification/README.md) compiles current sources and runs the existing tests without substituting SDK stubs. Neither check establishes that an APK builds, loads in ATAK, or is ready for customers.
+
+> **Historical demo description below:** quantitative outputs and safety claims are illustrative prototype behavior, not validated predictions or guarantees.
 
 ---
 
@@ -24,7 +38,7 @@ Operators today have **zero real-time awareness** of their RF signature relative
 
 A phone-sized ATAK plugin that gives the operator a live composite-risk number, a plain-English status (SAFE / CAUTION / MOVE NOW), and a quantified displacement recommendation when risk crosses red.
 
-Runs on the same Android phone an operator already carries for ATAK. Free. Open source. EAR99 — no export restrictions.
+Designed as a plugin for an Android phone running ATAK. Source is provided under Apache 2.0. Export classification and distribution obligations require qualified review; this repository does not establish EAR99 status or unrestricted export.
 
 ## How it works
 
@@ -46,14 +60,11 @@ Runs on the same Android phone an operator already carries for ATAK. Free. Open 
 | Amber / CAUTION | `CAUTION — fix in ~45s` | Plan to move |
 | Red / MOVE NOW | `MOVE NOW` + DISPLACE modal with 3 candidate routes | Move now |
 
-## Quick start
+## Installation status
 
-1. Install ATAK-CIV 4.6.0 on an Android phone (one of the public DoD GitHub releases)
-2. Sideload `app-civ-debug.apk`: `adb install -r ATAK-Plugin-EmconSentinel-*-civ-debug.apk`
-3. Open ATAK → hamburger → **Plugins** → enable **EMCON Sentinel** → restart ATAK
-4. Tile shows up in Tools menu. Tap to open the bottom sheet.
+No verified installable APK is supplied here. This is an ATAK plugin, not a standalone Android app. See the [conditional build and installation guide](plugin/README.md) for development prerequisites, signing requirements, evaluation installation, and removal. Do not infer compatibility or production readiness from the original demo.
 
-The plugin auto-applies a worst-case threat posture around your GPS — so the dial works from minute zero with no S2 brief.
+Use synthetic data in controlled evaluation: the current source enables plaintext network sharing by default. See [known privacy risks](SECURITY.md#known-source-level-data-flows).
 
 ## Why on a phone
 
@@ -113,8 +124,8 @@ plugin/app/src/main/
 
 Every adversary number traces to public reporting (Sprotyv G7, CSIS, RUSI, Conflict Armament Research, Janes, Telegram milblogger reporting). See [`docs/osint_sources.md`](docs/osint_sources.md) for the citation table.
 
-No classified data. No FOUO/CUI. No ITAR. No proprietary vendor info beyond public datasheets.
+The repository describes its inputs as public-source information. This is not a legal determination of classification, ITAR/EAR applicability, or distribution rights. Verify source licenses and SDK redistribution terms before publishing a download.
 
 ## License
 
-Apache 2.0 — see [`LICENSE`](LICENSE). EAR99 export classification.
+Apache 2.0 — see [`LICENSE`](LICENSE). Third-party dependencies and the separately supplied ATAK SDK retain their own terms. Export classification is unverified.
