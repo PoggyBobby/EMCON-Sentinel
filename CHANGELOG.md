@@ -26,6 +26,12 @@ release is asserted by this initial entry.
   34 checker regression tests and an independent review pass.
 - Replace deprecated action versions with official Node.js 24 releases pinned
   to immutable commit SHAs.
+- Verify JVM test dependencies by pinned SHA-256 with HTTPS host allowlisting,
+  bounded atomic downloads, and fail-closed manifest/path validation.
+- Add checksum-verified workflow linting and full-history secret scanning, plus
+  weekly Dependabot update PRs for GitHub Actions and Gradle.
+- Add an offline, allowlisted support-report collector, a troubleshooting guide,
+  and a proposed civilian own-device diagnostics direction.
 
 ### Status and limitations
 

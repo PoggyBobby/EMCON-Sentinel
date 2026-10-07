@@ -32,7 +32,7 @@ Every invocation creates a fresh class output directory. `javac --release 17`
 compiles the manifest's production and test files directly. JUnit runs with
 `plugin/app` as its working directory, preserving existing asset-file paths.
 Compilation failures, JUnit failures, missing tests, empty JUnit execution,
-checksum failures, version mismatch, and subprocess timeouts exit nonzero.
+SHA-256 failures, malformed manifests, version mismatch, and subprocess timeouts exit nonzero.
 
 ## Exact existing-test inventory
 
@@ -86,7 +86,7 @@ run's evidence. The matching `run-<id>/summary.json` retains its snapshot.
   JUnit counts/exit codes/status. `compile_log` and each class's `log` are explicit
   paths **relative to the report root**, always inside the identified `run_dir`.
 - SHA-256 digests of production/test inputs, JSON assets, inventory, dependency
-  lock, and runner; dependency SHA-1 and actual SHA-256 digests.
+  lock, and runner; each dependency's URL, verified SHA-256, and SHA-1 provenance.
 - Explicit `passed` / `failed` final status, start/finish times, and the coverage
   boundary. Bootstrap failures retain the metadata collected before the error.
 
@@ -116,23 +116,73 @@ require a writable report location; an I/O failure or forced process termination
 cannot guarantee a finalized report and must never be treated as success.
 
 CI uploads reports on success and failure. The stdlib Python infrastructure
-tests exercise checksum rejection, empty/drifting/malformed inventories, CLI
+tests exercise SHA-256 download/cache rejection, reviewed-URL and digest-format
+validation, bounded/atomic/timeout-safe downloads, redirect and symlinked-cache
+refusal, fail-closed lock and manifest schemas, path traversal and symlink
+escapes, empty/drifting inventories, CLI
 operation, real compilation and assertion failures, fresh recompilation,
 inventory removal, bootstrap failures, and real compiler/JUnit subprocess
-timeouts using temporary **generic infrastructure fixtures**. Timeout tests
+timeouts using temporary **generic infrastructure fixtures**. Network behavior in
+these unit tests is simulated with an in-memory `urlopen` stand-in; real Maven
+Central downloads are exercised by running the suite with an empty
+`--cache-dir`. Timeout tests
 shorten only the subprocess deadline, not its output or exit behavior. Reused
 report-directory tests prove old success logs and unrelated files survive
 unchanged but cannot be attributed to a later failed or reduced-inventory run.
 
 ## Dependencies and integrity
 
-`dependencies.json` pins official Maven Central HTTPS URLs and the SHA-1 hashes
-published at those URLs with `.sha1` appended, for JUnit 4.13.2, Hamcrest Core
-1.3, and Gson 2.10.1. New downloads and cached bytes are checked before being
-used. A corrupt cache fails closed instead of being silently trusted. SHA-1 is
-the publisher's legacy checksum, not a signature; the report additionally
-records SHA-256 digests. No Maven credentials or private repository access is
-needed.
+`dependencies.json` is a fail-closed lock: a nonempty list whose entries contain
+exactly `url`, `sha256`, and optional `sha1`. Verification uses **SHA-256 only**;
+`sha1` is retained solely as publisher-checksum provenance. The runner rejects,
+before any network or cache I/O, a malformed lock, unknown keys, digests that are
+not 64 lowercase hex characters, duplicate cache file names, and any URL that is
+not `https://repo.maven.apache.org/maven2/...jar` (plain HTTP, other hosts,
+ports, credentials/userinfo, queries, fragments, percent-encoding, and `.`/`..`
+segments are refused). A download that redirects away from the reviewed URL is
+refused.
+
+Downloads stream in bounded 64 KiB reads with a 60-second socket timeout and a
+16 MiB per-artifact limit, hashing as they write to a temporary file in the cache
+directory. Only a SHA-256 match is fsynced and atomically renamed into place; a
+mismatch, oversize body, redirect, timeout, or interruption leaves no installed
+artifact and removes the temporary file. Cached artifacts are re-hashed on every
+run; a mismatched cache fails closed and is **not** overwritten or deleted, and a
+symlinked cache entry is refused. Stale `.download-*` leftovers are never read.
+
+### SHA-256 provenance (derived, not publisher-signed)
+
+Maven Central publishes `<artifact URL>.sha1` files for these artifacts but
+returned **HTTP 404 for `<artifact URL>.sha256`** for all three on
+2026-10-07 (UTC). The SHA-256 pins were therefore **derived locally**:
+
+1. Fetched `<artifact URL>.sha1` and the artifact itself over HTTPS from
+   `repo.maven.apache.org` (no redirect; final URL equal to the pinned URL).
+2. Confirmed the artifact's SHA-1 equals both the published `.sha1` and the
+   SHA-1 previously pinned in this repository.
+3. Computed SHA-256 of those exact bytes; a second, independent fresh download
+   into an empty cache by `scripts/test_java.py` reproduced the same digests.
+
+| Artifact | Bytes | Publisher SHA-1 (checked) | Derived SHA-256 (pinned) |
+| --- | ---: | --- | --- |
+| `junit-4.13.2.jar` | 384581 | `8ac9e16d933b6fb43bc7f576336b8f4d7eb5ba12` | `8e495b634469d64fb8acfa3495a065cbacc8a0fff55ce1e31007be4c16dc57d3` |
+| `hamcrest-core-1.3.jar` | 45024 | `42a25dc3219429f0e5d060061f71acb49bf010a0` | `66fdef91e9739348df7a096aa384a5685f4e875584cce89386a7a47251c4d8e9` |
+| `gson-2.10.1.jar` | 283367 | `b3add478d4382b78ea20b1671390a858002feb6c` | `4241c14a7727c34feea6507ec801318a3d4a90f070e4525681079fb94ee4c593` |
+
+The SHA-256 pin therefore attests "same bytes as the artifact whose SHA-1 Maven
+Central published", trusting HTTPS transport and that SHA-1 match at derivation
+time. **No PGP/`.asc` signature was verified**; these are checksums, not
+signatures. No Maven credentials or private repository access is needed.
+
+## Manifest path safety
+
+`java-tests.json` must contain exactly `included_tests`, `excluded_tests`
+(path → nonempty reason), and `included_sources`. Every included test/source path
+must be a unique relative POSIX `.java` path (letters, digits, `_`, `$`, `-`,
+separated by `/`) that resolves to an existing regular file inside
+`plugin/app/src/test/java` or `plugin/app/src/main/java`. Absolute paths, `.`/`..`
+segments, backslashes, and any symlinked path component are rejected before
+compilation. Failures are `ValueError`s recorded in a failed run report.
 
 ## Local JDK provisioning used for verification
 

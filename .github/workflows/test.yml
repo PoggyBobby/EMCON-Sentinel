@@ -21,8 +21,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Configure runner-local scratch paths
         run: |
-          printf 'JAVA_TEST_CACHE=%s/java-dependencies\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
-          printf 'JAVA_TEST_SCRATCH=%s/java-runner-fixtures\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          {
+            printf 'JAVA_TEST_CACHE=%s/java-dependencies\n' "$RUNNER_TEMP"
+            printf 'JAVA_TEST_SCRATCH=%s/java-runner-fixtures\n' "$RUNNER_TEMP"
+          } >> "$GITHUB_ENV"
       - name: Set up JDK 17
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -32,7 +34,7 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
-      - name: Test offline release-prerequisite checker
+      - name: Test generic repository tooling
         run: python3 -m unittest discover -s tests -v
       - name: Test verification infrastructure
         run: python3 -m unittest discover -s verification -p 'test_*.py' -v
@@ -43,9 +45,11 @@ jobs:
       - name: State coverage boundary
         if: always()
         run: |
-          printf '%s\n' 'This job tests an SDK-independent JVM source subset and generic release tooling.' >> "$GITHUB_STEP_SUMMARY"
-          printf '%s\n' 'Use the uploaded current-run summary.json for actual counts and pass/fail evidence; absent reports mean execution was not verified.' >> "$GITHUB_STEP_SUMMARY"
-          printf '%s\n' 'It does NOT build an APK or validate Android/ATAK integration, signing, sensors, UI, or device behavior. A real licensed SDK is required for those checks.' >> "$GITHUB_STEP_SUMMARY"
+          {
+            printf '%s\n' 'This job tests an SDK-independent JVM source subset and generic release tooling.'
+            printf '%s\n' 'Use the uploaded current-run summary.json for actual counts and pass/fail evidence; absent reports mean execution was not verified.'
+            printf '%s\n' 'It does NOT build an APK or validate Android/ATAK integration, signing, sensors, UI, or device behavior. A real licensed SDK is required for those checks.'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload JVM reports and source provenance
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
