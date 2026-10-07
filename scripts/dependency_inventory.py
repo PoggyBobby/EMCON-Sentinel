@@ -98,6 +98,14 @@ def maven_purl(group, name, version):
     return f'pkg:maven/{quote(group, safe=".")}/{quote(name, safe=".")}@{quote(version, safe=".")}'
 
 
+def maven_url(coordinate, extension):
+    """Canonical unclassified Central path from an already validated coordinate."""
+    group, name, version = coordinate.split(':')
+    if not all(re.fullmatch(TOKEN, segment) for segment in group.split('.')):
+        fail('Maven group segments must be nonempty tokens')
+    return f'https://repo.maven.apache.org/maven2/{group.replace(".", "/")}/{name}/{version}/{name}-{version}.{extension}'
+
+
 def check_digest(key, value):
     if key not in HEX or not isinstance(value, str) or not re.fullmatch('[0-9a-f]{%d}' % HEX[key][1], value):
         fail(f'malformed {key} digest')
@@ -493,7 +501,7 @@ def check_license_evidence(entries, what):
         fail(f'{what}.licenseEvidence must be a nonempty array')
     for i, entry in enumerate(entries):
         where = f'{what}.licenseEvidence[{i}]'
-        require_keys(entry, ('relation', 'url', 'retrievedAtUtc', 'declaredLicenses'), ('pomCoordinate', 'sha256'), where)
+        require_keys(entry, ('relation', 'url', 'retrievedAtUtc', 'declaredLicenses'), ('pomCoordinate', 'parentCoordinate', 'sha256'), where)
         https_url(entry['url'], f'{where}.url')
         if not isinstance(entry['relation'], str) or entry['relation'] not in {'self', 'parent', 'registry-metadata'}:
             fail(f'{where}.relation is unsupported')
@@ -506,6 +514,8 @@ def check_license_evidence(entries, what):
             fail(f'{where}.retrievedAtUtc must be UTC ISO-8601')
         if 'pomCoordinate' in entry and (not isinstance(entry['pomCoordinate'], str) or not COORDINATE.fullmatch(entry['pomCoordinate'])):
             fail(f'{where}.pomCoordinate must be group:artifact:version')
+        if 'parentCoordinate' in entry and (not isinstance(entry['parentCoordinate'], str) or not COORDINATE.fullmatch(entry['parentCoordinate'])):
+            fail(f'{where}.parentCoordinate must be group:artifact:version')
         if 'sha256' in entry:
             check_digest('sha256', entry['sha256'])
         if not isinstance(entry['declaredLicenses'], list):
@@ -517,6 +527,43 @@ def check_license_evidence(entries, what):
                 checked_url(lic['url'], f'{where} declared license url', ('http', 'https'))
     if not any(e['declaredLicenses'] for e in entries):
         fail(f'{what} has evidence entries but no declared license; omit it to mark unknown')
+
+
+def check_maven_association(entries, coordinate):
+    """Check recorded identities, not downloaded POM contents or legal inheritance."""
+    for entry in entries:
+        pom = entry.get('pomCoordinate')
+        if entry['relation'] not in {'self', 'parent'} or pom is None:
+            fail('Maven evidence requires self/parent relation and pomCoordinate')
+        if entry['url'] != maven_url(pom, 'pom'):
+            fail('Maven evidence URL must match pomCoordinate')
+        if entry['relation'] == 'self' and pom != coordinate:
+            fail('Maven evidence self coordinate must match artifact')
+    nodes = {entry['pomCoordinate']: entry for entry in entries}
+    if len(nodes) != len(entries) or sum(e['relation'] == 'self' for e in entries) != 1:
+        fail('Maven evidence requires unique POMs and exactly one self entry')
+    reached, current = set(), coordinate
+    while current in nodes:
+        if current in reached:
+            fail('Maven evidence parent cycle')
+        reached.add(current)
+        current = nodes[current].get('parentCoordinate')
+    if reached != set(nodes):
+        fail('Maven evidence contains parent POMs not linked from self')
+
+
+def check_observed_association(item):
+    """License-bearing observed libraries: unscoped npm registry records only."""
+    name, version = item['name'], item.get('version')
+    if (not re.fullmatch(r'[a-z0-9][a-z0-9._-]*', name) or not isinstance(version, str)
+            or not re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', version)):
+        fail('observed license evidence requires unscoped npm name and stable MAJOR.MINOR.PATCH version')
+    if 'purl' in item and item['purl'] != f'pkg:npm/{name}@{version}':
+        fail('observed license evidence purl must match name/version')
+    for entry in item['licenseEvidence']:
+        if (entry['relation'] != 'registry-metadata' or {'pomCoordinate', 'parentCoordinate'} & set(entry)
+                or entry['url'] != f'https://registry.npmjs.org/{name}/{version}'):
+            fail('observed license evidence must match canonical npm registry identity')
 
 
 def load_evidence(text, rel):
@@ -545,10 +592,13 @@ def load_evidence(text, rel):
         require_keys(item, ('artifact', 'licenseEvidence'), (), f'maven[{coordinate}]')
         artifact = require_keys(item['artifact'], ('url',), ('sha1', 'sha256'), f'maven[{coordinate}].artifact')
         https_url(artifact['url'], 'artifact url')
+        if artifact['url'] != maven_url(coordinate, 'jar'):
+            fail('artifact URL must match Maven coordinate')
         for key in ('sha1', 'sha256'):
             if key in artifact:
                 check_digest(key, artifact[key])
         check_license_evidence(item['licenseEvidence'], f'maven[{coordinate}]')
+        check_maven_association(item['licenseEvidence'], coordinate)
     ids = set()
     for kind in ('observed', 'unknown'):
         if not isinstance(ev[kind], list):
@@ -589,6 +639,7 @@ def load_evidence(text, rel):
                 fail(f'{where}.purl must be a pkg: URL')
             if 'licenseEvidence' in item:
                 check_license_evidence(item['licenseEvidence'], where)
+                check_observed_association(item)
     return ev
 
 

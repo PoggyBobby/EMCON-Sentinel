@@ -33,7 +33,7 @@ Code 2 messages name repository-relative paths only. Codes 3 and 4 print only th
 - Check mode opens the output directory and final file with `O_NOFOLLOW`, verifies a singly linked regular file, and compares at most the expected byte length plus one. Publication rechecks the destination type before replacement. Directory-relative operations avoid following a final-file symlink; this is not a guarantee against hostile users with write access to the repository concurrently renaming directories or temporary files.
 - This output implementation targets macOS/Linux POSIX filesystem APIs. The explicitly selected repository root and its ownership are trusted; keep it private from untrusted local writers. No Windows output compatibility or crash-durable two-file transaction is claimed.
 
-These output checks do **not** fix the remaining draft PR's Gradle-parser, evidence URL/coordinate association or clean-checkout drift-gate findings. This remains a development inventory, not a releasable SBOM.
+These output checks do **not** fix the remaining draft PR's Gradle-parser or clean-checkout drift-gate findings. Evidence identity consistency is checked separately as documented below; metadata contents and legal inheritance are not authenticated by this generator. This remains a development inventory, not a releasable SBOM.
 
 ## What it is — and is not
 
@@ -102,6 +102,19 @@ This file is checked in and used offline. It records what upstream metadata **de
 - Services get `external-service-or-data-terms-not-licensed-by-this-repository`. This repository's license grants no rights to external services or data.
 - The `unknown` list covers things this inventory does not enumerate: the ATAK SDK, whose license and redistribution terms are unknown, the Android SDK platform, and unpinned Python tools.
 
+### Narrow evidence identity association
+
+Before license names are attached, the generator checks **recorded identity consistency**, using a deliberately narrow subset:
+
+- Each Maven artifact URL must equal the canonical, unclassified Maven Central JAR URL derived from its `group:artifact:version`, even for Gradle-only components without manifest hashes. Dot-separated group segments must be nonempty tokens; alternate hosts, percent-encoded aliases, classifiers and other layouts are unsupported.
+- Maven metadata entries require `self` or `parent`, a `pomCoordinate`, and exactly the canonical Central `.pom` URL for that coordinate. Exactly one `self` entry must match the artifact coordinate. Duplicate POM coordinates are refused.
+- Parent entries must be reachable from that self entry through optional `parentCoordinate` fields recorded on the child metadata entries. Cycles and unrelated parent entries are refused. Entry order does not matter. A link whose target is not included is not traversed; this is **not a complete ancestor inventory**. Parent fields are checked-in assertions, not proof read from a POM at generation time.
+- License-bearing observed libraries support only unscoped lowercase npm names, a deliberately tiny stable SemVer subset, and `registry-metadata` at exactly `https://registry.npmjs.org/<name>/<version>`. Supported versions are exactly `MAJOR.MINOR.PATCH`: three nonnegative ASCII decimal components without leading zeros except the single digit `0` (for example, `0.0.0` and `1.9.4`). Dist-tags (`latest`, `next`), ranges, abbreviated versions (`1`, `1.9`), wildcards (`1.x`), leading-zero components (`01.9.4`), prerelease versions and build metadata are unsupported and fail closed even when version, purl and metadata URL agree. A purl, if supplied, must equal `pkg:npm/<name>@<version>`. POM/parent fields, scoped npm packages, other registries/ecosystems and unidentified versions fail closed. Observed libraries without evidence retain their unknown-license status and need not satisfy this evidence subset.
+
+The Hamcrest/Gson child POMs were retrieved from their official Central URLs when their parent fields were added. Their actual SHA-256 values matched the existing evidence digests, and their direct `<parent>` coordinates matched the newly recorded links. This was a manual refresh check, **not a network operation in the generator**.
+
+The offline generator does not store, parse or authenticate upstream metadata payloads. Recorded POM digests, license names, parent links and marker-to-library attribution remain evidence-maintainer assertions. A mutually consistent but false metadata record cannot be detected by these identity checks. They are not signature verification, legal inheritance validation, confirmation of fetched runtime content, SPDX mapping or license/redistribution completeness. Review actual full metadata, license texts and NOTICE files before distribution.
+
 ### Fail-closed drift checks
 
 Generation stops with exit code 2 if any of these happen:
@@ -127,6 +140,7 @@ When a dependency changes, fetch the matching `.pom` (and parent `.pom` if the l
 - the `<licenses>` entries exactly as declared
 - the SHA-256 of the POM
 - the artifact's SHA-1 and SHA-256
+- `pomCoordinate` for each Maven metadata record, plus `parentCoordinate` on a child when including its parent's evidence (copy the direct `<parent>` group/artifact/version; do not infer it from names)
 - the UTC retrieval time
 
 Then run the generator and commit the regenerated notices.

@@ -213,7 +213,15 @@ class BuildTests(unittest.TestCase):
             'digest drift': lambda root, ev: write(root, 'verification/dependencies.json', json.dumps([{'url': JAR, 'sha1': 'f' * 40}])),
             'license drift': lambda root, ev: write(root, 'LICENSE', LICENSE_TEXT + 'changed'),
             'marker drift': lambda root, ev: write(root, 'sim/index.html', 'nothing here'),
-            'stale evidence': lambda root, ev: write(root, 'verification/license-evidence.json', json.dumps({**ev, 'maven': {**ev['maven'], 'x:y:1': ev['maven']['junit:junit:4.13.2']}})),
+            'stale evidence': lambda root, ev: write(root, 'verification/license-evidence.json', json.dumps({**ev, 'maven': {**ev['maven'], 'x:y:1': {
+                'artifact': {'url': 'https://repo.maven.apache.org/maven2/x/y/1/y-1.jar'},
+                'licenseEvidence': [{
+                    'relation': 'self', 'pomCoordinate': 'x:y:1',
+                    'url': 'https://repo.maven.apache.org/maven2/x/y/1/y-1.pom',
+                    'retrievedAtUtc': '2026-10-07T05:54:00Z',
+                    'declaredLicenses': [{'name': 'Synthetic license'}],
+                }],
+            }}})),
             'unknown key': lambda root, ev: write(root, 'verification/license-evidence.json', json.dumps({**ev, 'extra': 1})),
             'absolute input': lambda root, ev: write(root, 'verification/license-evidence.json', json.dumps({**ev, 'inputs': {**ev['inputs'], 'gradleBuildFiles': ['/etc/hosts']}})),
             'secret input': lambda root, ev: write(root, 'verification/license-evidence.json', json.dumps({**ev, 'inputs': {**ev['inputs'], 'gradleBuildFiles': ['plugin/local.properties']}})),
@@ -225,7 +233,9 @@ class BuildTests(unittest.TestCase):
             with self.subTest(name), tempfile.TemporaryDirectory() as tmp:
                 ev = fixture_repo(tmp)
                 mutate(tmp, ev)
-                with self.assertRaises(ValueError):
+                rejection = (self.assertRaisesRegex(ValueError, 'stale license evidence')
+                             if name == 'stale evidence' else self.assertRaises(ValueError))
+                with rejection:
                     self.build(tmp)
 
 
