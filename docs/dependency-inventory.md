@@ -50,7 +50,11 @@ What gets inventoried:
    - Dynamic versions get **no version and no purl**: ranges, `+`, `latest.*` and `-SNAPSHOT`. The declared text is recorded as `emcon:declared-version`.
    - `$var` and `${var}` are expanded only inside double-quoted strings. The variable must be assigned exactly once in the file, as `def var = '<literal>'` with a single-quoted literal and nothing else on the statement. Concatenations, double-quoted values, reassigned or duplicate names and `${a.b}` stay `declared-variable-unresolved`. Single-quoted `'${v}'` is never interpolated, and a `$` in a coordinate fails closed.
    - `files(...)` and `fileTree(...)` are counted but not enumerated, and their arguments (which may be local paths) are never emitted.
-3. **Gradle wrapper**: the `distributionUrl` from `gradle-wrapper.properties`, plus its `distributionSha256Sum` if present.
+3. **Gradle wrapper**: the `distributionUrl` from `gradle-wrapper.properties`, plus its `distributionSha256Sum` if present. The parser accepts a deliberately narrow Java-properties subset, not arbitrary `.properties` syntax:
+   - Printable ASCII plus Java whitespace (space, tab, form feed) and CR/LF/CRLF line endings only. Blank lines and whole-line `#`/`!` comments are ignored; comments do not continue onto the next line.
+   - Each property uses a literal `[A-Za-z][A-Za-z0-9_.-]*` key and an `=` separator. Java whitespace around the key and after `=` is allowed. Duplicate keys, including unknown keys and identical values, are rejected.
+   - Only `\:` escapes in values are decoded. Escaped keys, Unicode/other escapes, continuation lines, colon/whitespace separators and other unsupported syntax fail closed across the whole file, including properties not inventoried.
+   - Value trailing whitespace is preserved as Java does, so a trailing space/tab/form feed makes a distribution URL or SHA-256 invalid rather than silently changing it. Unknown properties are syntax-checked but not emitted. The existing checked-in wrapper remains supported; no wrapper or toolchain configuration is changed.
 4. **Observed external items** listed in `verification/license-evidence.json`:
    - Leaflet loaded from a CDN by `sim/index.html` becomes a component.
    - External tile and API endpoints become `services`. URI templates such as `{z}` are not valid CycloneDX IRIs, so they go into `emcon:endpoint-template`.

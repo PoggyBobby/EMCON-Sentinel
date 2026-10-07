@@ -574,13 +574,23 @@ def load_evidence(path):
 
 
 def read_wrapper(text, rel):
+    """Parse a narrow ASCII Java-properties subset; unsupported syntax fails closed."""
+    if re.search(r'[^\x20-\x7e\t\f\r\n]', text):
+        fail('unsupported wrapper property character')
     props = {}
-    for line in text.splitlines():
-        if line.strip() and not line.lstrip().startswith(('#', '!')):
+    for line in re.split(r'\r\n|\r|\n', text):
+        if line.strip(' \t\f') and not line.lstrip(' \t\f').startswith(('#', '!')):
             key, sep, value = line.partition('=')
             if not sep:
                 fail(f'malformed properties line in {rel}')
-            props[key.strip()] = value.strip().replace('\\:', ':')
+            key = key.strip()
+            if not re.fullmatch(r'[A-Za-z][A-Za-z0-9_.-]*', key):
+                fail('unsupported wrapper property key syntax')
+            if key in props:
+                fail('duplicate wrapper property')
+            if re.search(r'\\(?!:)', value):
+                fail('unsupported wrapper property value escape or continuation')
+            props[key] = value.lstrip(' \t\f').replace('\\:', ':')
     url = https_url(props.get('distributionUrl'), 'distributionUrl')
     match = re.fullmatch(r'https://services\.gradle\.org/distributions/(gradle-([0-9][0-9A-Za-z.-]*)-(bin|all)\.zip)', url)
     if not match:
