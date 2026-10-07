@@ -982,7 +982,10 @@ def main(argv=None):
     parser.add_argument('--evidence', default='verification/license-evidence.json')
     parser.add_argument('--output', default='dist/source-sbom.cdx.json')
     parser.add_argument('--notices', default='docs/third-party-notices.md')
-    parser.add_argument('--check', action='store_true', help='verify outputs are current; write nothing')
+    checks = parser.add_mutually_exclusive_group()
+    checks.add_argument('--check', action='store_true', help='verify both outputs are current; write nothing')
+    checks.add_argument('--check-notices', action='store_true',
+                        help='verify only committed notices; ignore the SBOM output and write nothing')
     args = parser.parse_args(argv)
     root = Path(args.root)
     try:
@@ -993,7 +996,8 @@ def main(argv=None):
         if (not re.fullmatch(r'dist/[A-Za-z0-9_][A-Za-z0-9_.-]*\.json', args.output)
                 or not re.fullmatch(r'docs/[A-Za-z0-9_][A-Za-z0-9_.-]*\.md', args.notices)):
             raise OSError('output path outside artifact allowlist')
-        outputs = {root / args.output: sbom_text, root / args.notices: notices}
+        outputs = ({root / args.notices: notices} if args.check_notices else
+                   {root / args.output: sbom_text, root / args.notices: notices})
         if any(path.is_symlink() or any(parent.is_symlink() for parent in path.parents
                                         if parent != root and parent.is_relative_to(root))
                for path in outputs):
@@ -1005,7 +1009,7 @@ def main(argv=None):
                 continue
             if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
                 raise OSError('unsafe output file type')
-        if args.check:
+        if args.check or args.check_notices:
             stale = [p.relative_to(root).as_posix() if p.is_relative_to(root) else p.name for p, text in outputs.items()
                      if not output_current(p, text)]
             if stale:
@@ -1031,7 +1035,7 @@ def main(argv=None):
         'with_declared_license_evidence': sum('licenses' in c for c in comps),
         'license_unknown': sum('licenses' not in c for c in comps),
         'unresolved_versions': sum('version' not in c for c in comps),
-        'serialNumber': sbom['serialNumber'], 'checked': args.check,
+        'serialNumber': sbom['serialNumber'], 'checked': args.check or args.check_notices,
     }
     print(json.dumps(summary, sort_keys=True))
     return 0

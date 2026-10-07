@@ -8,9 +8,10 @@
 | `docs/third-party-notices.md` | Yes | Generated third-party notices with limitations |
 
 ```sh
-python3 scripts/dependency_inventory.py           # write both outputs, print JSON counts
-python3 scripts/dependency_inventory.py --check   # exit 1 if either output is stale or missing; writes nothing
-python3 -m unittest tests.test_dependency_inventory -v
+python3 scripts/dependency_inventory.py                  # write both outputs, print JSON counts
+python3 scripts/dependency_inventory.py --check          # both outputs must be fresh; writes nothing
+python3 scripts/dependency_inventory.py --check-notices  # tracked notices only; clean-checkout CI gate
+python3 -B -m unittest discover -s tests -p 'test_inventory*.py' -v
 ```
 
 Exit codes:
@@ -18,12 +19,20 @@ Exit codes:
 | Code | Meaning |
 |---|---|
 | `0` | OK |
-| `1` | Stale or missing output (`--check`) |
+| `1` | Stale or missing selected output (`--check` / `--check-notices`) |
 | `2` | Malformed, disallowed, unreadable or drifted input (also argparse usage errors) |
 | `3` | Unsafe output location or I/O failure writing or reading outputs |
 | `4` | Unexpected internal error |
 
 Code 2 messages name repository-relative paths only. Codes 3 and 4 print only the exception type; details are suppressed so local paths never reach logs. No traceback is printed.
+
+## Clean-checkout committed-notices gate
+
+CI runs `python3 scripts/dependency_inventory.py --check-notices` after Python setup and **before tests or generation** in the JVM/tooling job. It builds the expected inventory/notices in memory using the same input validation as write mode, then compares only `docs/third-party-notices.md`. Stale or missing notices fail with exit 1; unsafe notices fail with exit 3. Nothing is written, regenerated or created. There is no Git-index inspection: the fixed default notices path is the tracked output by repository policy; `--notices docs/<name>.md` selects an alternate expected output when explicitly requested.
+
+The ignored `dist/source-sbom.cdx.json` is not opened or inspected in this mode, whether absent, stale or unsafe. `--output` still must satisfy the artifact path allowlist, but is not checked. No on-disk SBOM is validated or published by this gate. Use write mode separately to produce a development SBOM, then `--check` to validate **both** outputs. The two check flags are mutually exclusive. Successful check-mode JSON counts describe the in-memory source observation, not an Android build, a validated release SBOM, or proof of full inventory coverage.
+
+Do not generate notices before this CI comparison: regeneration would hide committed-output drift. After an intentional input change, regenerate locally, review and commit the notices. A clean `git archive` with no `dist/` is sufficient to run the committed-notices gate; full `--check` intentionally still fails until both outputs exist. Nested closure classification and scoped/use-order/property parsing remain unresolved draft findings; this gate cannot detect dependencies the parser misclassifies or omits.
 
 ## Output path and publication policy
 
@@ -33,7 +42,7 @@ Code 2 messages name repository-relative paths only. Codes 3 and 4 print only th
 - Check mode opens the output directory and final file with `O_NOFOLLOW`, verifies a singly linked regular file, and compares at most the expected byte length plus one. Publication rechecks the destination type before replacement. Directory-relative operations avoid following a final-file symlink; this is not a guarantee against hostile users with write access to the repository concurrently renaming directories or temporary files.
 - This output implementation targets macOS/Linux POSIX filesystem APIs. The explicitly selected repository root and its ownership are trusted; keep it private from untrusted local writers. No Windows output compatibility or crash-durable two-file transaction is claimed.
 
-These output checks do **not** fix the remaining draft PR's Gradle-parser or clean-checkout drift-gate findings. Evidence identity consistency is checked separately as documented below; metadata contents and legal inheritance are not authenticated by this generator. This remains a development inventory, not a releasable SBOM.
+These output checks do **not** fix the remaining draft PR's Gradle-parser findings. The independent committed-notices gate is described above. Evidence identity consistency is checked separately as documented below; metadata contents and legal inheritance are not authenticated by this generator. This remains a development inventory, not a releasable SBOM.
 
 ## What it is — and is not
 
